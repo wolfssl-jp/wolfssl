@@ -7581,6 +7581,11 @@ static int DecodeCertExtensions(DecodedCert* cert)
 
         /* check for critical flag */
         critical = 0;
+        if ((idx + 1) > (word32)sz) {
+            WOLFSSL_MSG("\tfail: malformed buffer");
+            return BUFFER_E;
+        }
+
         if (input[idx] == ASN_BOOLEAN) {
             ret = GetBoolean(input, &idx, sz);
             if (ret < 0) {
@@ -14444,6 +14449,11 @@ static int DecodeOcspRespExtensions(byte* source,
         }
 
         /* check for critical flag */
+        if ((idx + 1) > (word32)sz) {
+            WOLFSSL_MSG("\tfail: malformed buffer");
+            return BUFFER_E;
+        }
+
         if (source[idx] == ASN_BOOLEAN) {
             WOLFSSL_MSG("\tfound optional critical flag, moving past");
             ret = GetBoolean(source, &idx, sz);
