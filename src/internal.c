@@ -5666,10 +5666,6 @@ void FreeHandshakeResources(WOLFSSL* ssl)
 #ifdef HAVE_SECURE_RENEGOTIATION
     if (ssl->secure_renegotiation && ssl->secure_renegotiation->enabled) {
         WOLFSSL_MSG("Secure Renegotiation needs to retain handshake resources");
-    #ifdef KEEP_PEER_CERT
-        /* free peer cert in preparation for new handshake */
-        FreeX509(&ssl->peerCert);
-    #endif
         return;
     }
 #endif
@@ -9978,6 +9974,13 @@ int ProcessPeerCerts(WOLFSSL* ssl, byte* input, word32* inOutIdx,
 
             #ifdef KEEP_PEER_CERT
                 if (args->fatal == 0) {
+                    #ifdef HAVE_SECURE_RENEGOTIATION
+                        if (ssl->secure_renegotiation &&
+                                           ssl->secure_renegotiation->enabled) {
+                            /* free old peer cert */
+                            FreeX509(&ssl->peerCert);
+                        }
+                    #endif
                     /* set X509 format for peer cert */
                     int copyRet = CopyDecodedToX509(&ssl->peerCert,
                                                                 args->dCert);
