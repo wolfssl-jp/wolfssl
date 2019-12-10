@@ -146,6 +146,9 @@ enum DN_Tags {
 #define WOLFSSL_JOI_ST           "/jurisdictionST="
 #define WOLFSSL_EMAIL_ADDR       "/emailAddress="
 
+#define WOLFSSL_USER_ID          "/UID="
+#define WOLFSSL_DOMAIN_COMPONENT "/DC="
+
 /* NIDs */
 enum
 {
