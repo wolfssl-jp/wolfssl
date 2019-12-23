@@ -13675,10 +13675,11 @@ int wolfSSL_EVP_MD_type(const WOLFSSL_EVP_MD *md)
         if (ctx->cipherType == WOLFSSL_EVP_CIPH_TYPE_INIT){
             /* only first EVP_CipherInit invoke. ctx->cipherType is set below */
             XMEMSET(&ctx->cipher, 0, sizeof(ctx->cipher));
-            ctx->bufUsed = 0;
-            ctx->lastUsed = 0;
-            ctx->flags   = 0;
+            ctx->flags = 0;
         }
+        /* always clear buffer state */
+        ctx->bufUsed = 0;
+        ctx->lastUsed = 0;
 
 #ifndef NO_AES
     #ifdef HAVE_AES_CBC
