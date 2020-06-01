@@ -8939,8 +8939,9 @@ static int DoVerifyCallback(WOLFSSL* ssl, int ret, ProcPeerCertArgs* args)
             ret == ASN_BEFORE_DATE_E) {
             alertWhy = certificate_expired;
         }
-    }
-    else {
+    } else if (ret == ASN_NO_SIGNER_E) {
+        alertWhy = unknown_ca;
+    } else {
         verify_ok = 1;
     }
 
