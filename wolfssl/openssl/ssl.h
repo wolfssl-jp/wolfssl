@@ -945,6 +945,7 @@ typedef STACK_OF(WOLFSSL_ASN1_OBJECT) GENERAL_NAMES;
 #define SSL_CTX_set_alpn_select_cb      wolfSSL_CTX_set_alpn_select_cb
 #define SSL_CTX_set_next_protos_advertised_cb  wolfSSL_CTX_set_next_protos_advertised_cb
 #define SSL_CTX_set_next_proto_select_cb wolfSSL_CTX_set_next_proto_select_cb
+#define SSL_set_alpn_protos             wolfSSL_set_alpn_protos
 #define SSL_get0_next_proto_negotiated  wolfSSL_get0_next_proto_negotiated
 #define SSL_is_server                   wolfSSL_is_server
 #define SSL_CTX_set1_curves_list        wolfSSL_CTX_set1_curves_list
