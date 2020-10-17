@@ -13680,6 +13680,7 @@ int ProcessReply(WOLFSSL* ssl)
                     }
                     else {
 #ifdef WOLFSSL_TLS13
+                        ssl->msgsReceived.got_change_cipher = 0;
                         ret = DoTls13HandShakeMsg(ssl,
                                             ssl->buffers.inputBuffer.buffer,
                                             &ssl->buffers.inputBuffer.idx,
@@ -13742,6 +13743,13 @@ int ProcessReply(WOLFSSL* ssl)
                             return UNKNOWN_RECORD_TYPE;
                         }
                         ssl->buffers.inputBuffer.idx++;
+                        if (!ssl->msgsReceived.got_change_cipher) {
+                            ssl->msgsReceived.got_change_cipher = 1;
+                        }
+                        else {
+                            SendAlert(ssl, alert_fatal, illegal_parameter);
+                            return UNKNOWN_RECORD_TYPE;
+                        }
                         break;
                     }
     #endif
