@@ -14,6 +14,7 @@ EXTRA_DIST += \
 	     certs/ecc-key.pem \
 	     certs/ecc-privkey.pem \
 	     certs/ecc-privkeyPkcs8.pem \
+	     certs/ecc-privkeyPkcs8.der \
 	     certs/ecc-keyPkcs8Enc.pem \
 	     certs/ecc-keyPkcs8Enc.der \
 	     certs/ecc-key-comp.pem \
