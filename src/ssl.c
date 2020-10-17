@@ -4920,6 +4920,7 @@ int ProcessBuffer(WOLFSSL_CTX* ctx, const unsigned char* buff,
     int           eccKey = 0;
     int           ed25519Key = 0;
     int           rsaKey = 0;
+    int           keyFormat = 0;
     int           resetSuites = 0;
     void*         heap = wolfSSL_CTX_GetHeap(ctx, ssl);
     int           devId = wolfSSL_CTX_GetDevId(ctx, ssl);
@@ -4964,7 +4965,9 @@ int ProcessBuffer(WOLFSSL_CTX* ctx, const unsigned char* buff,
 
     if (format == WOLFSSL_FILETYPE_PEM) {
     #ifdef WOLFSSL_PEM_TO_DER
-        ret = PemToDer(buff, sz, type, &der, heap, info, &eccKey);
+        ret = PemToDer(buff, sz, type, &der, heap, info, &keyFormat);
+        if (keyFormat == ECDSAk)
+                eccKey = 1;
     #else
         ret = NOT_COMPILED_IN;
     #endif
@@ -29420,21 +29423,29 @@ WOLFSSL_EVP_PKEY* wolfSSL_PEM_read_bio_PrivateKey(WOLFSSL_BIO* bio,
 {
     WOLFSSL_EVP_PKEY* pkey = NULL;
     DerBuffer*        der = NULL;
-    int               eccFlag = 0;
+    int               keyFormat = 0;
+    int               type = -1;
 
     WOLFSSL_ENTER("wolfSSL_PEM_read_bio_PrivateKey");
 
     if (bio == NULL)
         return pkey;
 
-    if (pem_read_bio_key(bio, cb, pass, PRIVATEKEY_TYPE, &eccFlag, &der) >= 0) {
-        int type;
+    if (pem_read_bio_key(bio, cb, pass, PRIVATEKEY_TYPE, &keyFormat, &der) >= 0) {
         const unsigned char* ptr = der->buffer;
 
-        if (eccFlag)
-            type = EVP_PKEY_EC;
-        else
+        if (keyFormat) {
+            /* keyFormat is Key_Sum enum */
+            if (keyFormat == RSAk)
+                type = EVP_PKEY_RSA;
+            else if (keyFormat == ECDSAk)
+                type =  EVP_PKEY_EC;
+            else if (keyFormat == DSAk)
+                type = EVP_PKEY_DSA;
+        } else {
+            /* Default to RSA if format is not set */
             type = EVP_PKEY_RSA;
+        }
 
         /* handle case where reuse is attempted */
         if (key != NULL && *key != NULL)
