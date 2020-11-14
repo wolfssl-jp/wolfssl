@@ -2830,6 +2830,25 @@ static void test_wolfSSL_PKCS5(void)
 #endif /* defined(OPENSSL_EXTRA) && !defined(NO_SHA) */
 }
 
+static void test_wolfSSL_URI(void)
+{
+#if !defined(NO_CERTS) && !defined(NO_RSA) && !defined(NO_FILESYSTEM) \
+    && (defined(KEEP_PEER_CERT) || defined(SESSION_CERTS) || \
+    defined(OPENSSL_EXTRA)  || defined(OPENSSL_EXTRA_X509_SMALL))
+    WOLFSSL_X509* x509;
+    const char uri[] = "./certs/client-uri-cert.pem";
+
+    printf(testingFmt, "wolfSSL URI parse");
+
+    x509 = wolfSSL_X509_load_certificate_file(uri, WOLFSSL_FILETYPE_PEM);
+    AssertNotNull(x509);
+
+    wolfSSL_FreeX509(x509);
+
+    printf(resultFmt, passed);
+#endif
+}
+
 /* Testing function  wolfSSL_CTX_SetMinVersion; sets the minimum downgrade
  * version allowed.
  * POST: 1 on success.
@@ -15026,7 +15045,7 @@ static void test_wolfSSL_BN(void)
     BIGNUM* b;
     BIGNUM* c;
     BIGNUM* d;
-    ASN1_INTEGER ai;
+    ASN1_INTEGER* ai;
     unsigned char value[1];
 
     printf(testingFmt, "wolfSSL_BN()");
@@ -15037,12 +15056,14 @@ static void test_wolfSSL_BN(void)
 
     value[0] = 0x03;
 
+    AssertNotNull(ai = ASN1_INTEGER_new());
     /* at the moment hard setting since no set function */
-    ai.data[0] = 0x02; /* tag for ASN_INTEGER */
-    ai.data[1] = 0x01; /* length of integer */
-    ai.data[2] = value[0];
+    ai->data[0] = 0x02; /* tag for ASN_INTEGER */
+    ai->data[1] = 0x01; /* length of integer */
+    ai->data[2] = value[0];
 
-    AssertNotNull(a = ASN1_INTEGER_to_BN(&ai, NULL));
+    AssertNotNull(a = ASN1_INTEGER_to_BN(ai, NULL));
+    ASN1_INTEGER_free(ai);
 
     value[0] = 0x02;
     AssertNotNull(BN_bin2bn(value, sizeof(value), b));
@@ -15631,7 +15652,7 @@ static void test_wolfSSL_ASN1_TIME_adj(void)
                                     DYNAMIC_TYPE_OPENSSL);
     /* GeneralizedTime notation test */
     /* 2055/03/01 09:00:00 */
-    t = (time_t)85 * year + 59 * day + 9 * hour + 21 * day;
+    t = (time_t)85 * (time_t)year + 59 * day + 9 * hour + 21 * day;
     offset_day = 12;
     offset_sec = 10 * mini;
     asn_time = wolfSSL_ASN1_TIME_adj(s, t, offset_day, offset_sec);
@@ -15877,9 +15898,31 @@ static void test_wolfSSL_HMAC(void)
     AssertIntEQ(len, (int)WC_SHA256_DIGEST_SIZE);
 
     HMAC_cleanup(&hmac);
+#endif
+
+#if defined(OPENSSL_EXTRA) && !defined(NO_SHA256)
+    len = 0;
+    AssertNotNull(HMAC(EVP_sha256(), key, (int)sizeof(key), NULL, 0, hash, &len));
+    AssertIntEQ(len, (int)WC_SHA256_DIGEST_SIZE);
+#endif
+#if defined(OPENSSL_EXTRA) && defined(WOLFSSL_SHA224)
+    len = 0;
+    AssertNotNull(HMAC(EVP_sha224(), key, (int)sizeof(key), NULL, 0, hash, &len));
+    AssertIntEQ(len, (int)WC_SHA224_DIGEST_SIZE);
+#endif
+#if defined(OPENSSL_EXTRA) && (defined(WOLFSSL_SHA384) && defined(WOLFSSL_SHA512))
+    len = 0;
+    AssertNotNull(HMAC(EVP_sha384(), key, (int)sizeof(key), NULL, 0, hash, &len));
+    AssertIntEQ(len, (int)WC_SHA384_DIGEST_SIZE);
+#endif
+#if defined(OPENSSL_EXTRA) && defined(WOLFSSL_SHA512)
+    len = 0;
+    AssertNotNull(HMAC(EVP_sha512(), key, (int)sizeof(key), NULL, 0, hash, &len));
+    AssertIntEQ(len, (int)WC_SHA512_DIGEST_SIZE);
+#endif
 
     printf(resultFmt, passed);
-    #endif
+
 }
 
 
@@ -16775,6 +16818,40 @@ static void test_wolfSSL_SHA256(void)
 #endif
 }
 
+static void test_wolfSSL_X509_get_serialNumber(void)
+{
+#if defined(OPENSSL_EXTRA) && !defined(NO_CERTS) && \
+    !defined(NO_RSA)
+    ASN1_INTEGER* a;
+    BIGNUM* bn;
+    X509*   x509;
+
+
+    printf(testingFmt, "wolfSSL_X509_get_serialNumber()");
+
+    AssertNotNull(x509 = wolfSSL_X509_load_certificate_file(svrCertFile,
+                                                      SSL_FILETYPE_PEM));
+    AssertNotNull(a = X509_get_serialNumber(x509));
+    X509_free(x509);
+
+    /* check on value of ASN1 Integer */
+    AssertNotNull(bn = ASN1_INTEGER_to_BN(a, NULL));
+    AssertIntEQ(BN_get_word(bn), 1);
+
+    BN_free(bn);
+    ASN1_INTEGER_free(a);
+
+    /* hard test free'ing with dynamic buffer to make sure there is no leaks */
+    a = ASN1_INTEGER_new();
+    AssertNotNull(a->data = (unsigned char*)XMALLOC(100, NULL,
+                DYNAMIC_TYPE_OPENSSL));
+    a->isDynamic = 1;
+    ASN1_INTEGER_free(a);
+
+    printf(resultFmt, passed);
+#endif
+}
+
 static void test_no_op_functions(void)
 {
     #if defined(OPENSSL_EXTRA)
@@ -17547,6 +17624,8 @@ void ApiTest(void)
     test_wolfSSL_X509_NAME_get_entry();
     test_wolfSSL_PKCS12();
     test_wolfSSL_PKCS5();
+    test_wolfSSL_URI();
+
 
     /*OCSP Stapling. */
     AssertIntEQ(test_wolfSSL_UseOCSPStapling(), WOLFSSL_SUCCESS);
@@ -17610,7 +17689,8 @@ void ApiTest(void)
     test_wolfSSL_DH_1536_prime();
     test_wolfSSL_AES_ecb_encrypt();
     test_wolfSSL_SHA256();
-
+    test_wolfSSL_X509_get_serialNumber();
+    
     /* test the no op functions for compatibility */
     test_no_op_functions();
 

@@ -1675,7 +1675,8 @@ struct WOLFSSL_OCSP {
     WOLFSSL_CERT_MANAGER* cm;            /* pointer back to cert manager */
     OcspEntry*            ocspList;      /* OCSP response list */
     wolfSSL_Mutex         ocspLock;      /* OCSP list lock */
-#if defined(WOLFSSL_NGINX) || defined (WOLFSSL_HAPROXY)
+#if defined(OPENSSL_ALL) || defined(OPENSSL_EXTRA) || \
+    defined(WOLFSSL_NGINX) || defined(WOLFSSL_HAPROXY)
     int(*statusCb)(WOLFSSL*, void*);
 #endif
 };
@@ -2309,6 +2310,13 @@ enum KeyUpdateRequest {
 };
 #endif /* WOLFSSL_TLS13 */
 
+#ifdef OPENSSL_EXTRA
+enum SetCBIO {
+    WOLFSSL_CBIO_NONE = 0,
+    WOLFSSL_CBIO_RECV = 0x1,
+    WOLFSSL_CBIO_SEND = 0x2, 
+};
+#endif
 
 /* wolfSSL context type */
 struct WOLFSSL_CTX {
@@ -2330,7 +2338,8 @@ struct WOLFSSL_CTX {
     #ifdef OPENSSL_EXTRA
     WOLF_STACK_OF(WOLFSSL_X509_NAME)* ca_names;
     #endif
-    #if defined(WOLFSSL_NGINX) || defined (WOLFSSL_HAPROXY)
+    #if defined(OPENSSL_ALL) || defined(OPENSSL_EXTRA) || \
+        defined(WOLFSSL_NGINX) || defined (WOLFSSL_HAPROXY)
     WOLF_STACK_OF(WOLFSSL_X509)* x509Chain;
     #endif
 #ifdef WOLFSSL_TLS13
@@ -2401,6 +2410,7 @@ struct WOLFSSL_CTX {
     const unsigned char *alpn_cli_protos;/* ALPN client protocol list */
     unsigned int         alpn_cli_protos_len;
     byte              sessionCtxSz;
+    byte              cbioFlag;  /* WOLFSSL_CBIO_RECV/SEND: CBIORecv/Send is set */
     CallbackInfoState* CBIS;      /* used to get info about SSL state */
 #endif
     CallbackIORecv CBIORecv;
@@ -3377,6 +3387,9 @@ struct WOLFSSL {
     WriteDup*       dupWrite;           /* valid pointer indicates ON */
              /* side that decrements dupCount to zero frees overall structure */
     byte            dupSide;            /* write side or read side */
+#endif
+#ifdef OPENSSL_EXTRA
+    byte            cbioFlag;  /* WOLFSSL_CBIO_RECV/SEND: CBIORecv/Send is set */
 #endif
     CallbackIORecv  CBIORecv;
     CallbackIOSend  CBIOSend;

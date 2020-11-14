@@ -181,11 +181,16 @@ typedef struct WOLFSSL_ASN1_BIT_STRING  WOLFSSL_ASN1_BIT_STRING;
 #define WOLFSSL_ASN1_UTCTIME          WOLFSSL_ASN1_TIME
 #define WOLFSSL_ASN1_GENERALIZEDTIME  WOLFSSL_ASN1_TIME
 
+#define WOLFSSL_ASN1_INTEGER_MAX 20
 struct WOLFSSL_ASN1_INTEGER {
     /* size can be increased set at 20 for tag, length then to hold at least 16
      * byte type */
-    unsigned char data[20];
+    unsigned char intData[WOLFSSL_ASN1_INTEGER_MAX];
     /* ASN_INTEGER | LENGTH | hex of number */
+
+    unsigned char *data;
+    word32 dataMax;   /* max size of data buffer */
+    byte isDynamic:1; /* flag for if data pointer dynamic (1 is yes 0 is no) */
 };
 
 struct WOLFSSL_ASN1_TIME {
@@ -928,6 +933,8 @@ WOLFSSL_API WOLFSSL_X509_REVOKED* wolfSSL_X509_CRL_get_REVOKED(WOLFSSL_X509_CRL*
 WOLFSSL_API WOLFSSL_X509_REVOKED* wolfSSL_sk_X509_REVOKED_value(
                                                       WOLFSSL_X509_REVOKED*,int);
 WOLFSSL_API WOLFSSL_ASN1_INTEGER* wolfSSL_X509_get_serialNumber(WOLFSSL_X509*);
+WOLFSSL_API void wolfSSL_ASN1_INTEGER_free(WOLFSSL_ASN1_INTEGER *);
+WOLFSSL_API WOLFSSL_ASN1_INTEGER *wolfSSL_ASN1_INTEGER_new(void);
 
 WOLFSSL_API int wolfSSL_ASN1_TIME_print(WOLFSSL_BIO*, const WOLFSSL_ASN1_TIME*);
 
@@ -2775,7 +2782,8 @@ WOLFSSL_API int wolfSSL_CTX_set_tlsext_ticket_key_cb(WOLFSSL_CTX *, int (*)(
     WOLFSSL_EVP_CIPHER_CTX *ectx, WOLFSSL_HMAC_CTX *hctx, int enc));
 #endif
 
-#ifdef HAVE_OCSP
+#if defined(HAVE_OCSP) || defined(OPENSSL_EXTRA) || defined(OPENSSL_ALL) || \
+    defined(WOLFSSL_NGINX) || defined(WOLFSSL_HAPROXY)
 WOLFSSL_API int wolfSSL_CTX_get_extra_chain_certs(WOLFSSL_CTX* ctx,
     WOLF_STACK_OF(X509)** chain);
 WOLFSSL_API int wolfSSL_CTX_set_tlsext_status_cb(WOLFSSL_CTX* ctx,

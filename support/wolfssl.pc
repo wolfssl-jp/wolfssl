@@ -1,0 +1,10 @@
+prefix=/
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: wolfssl
+Description: wolfssl C library.
+Version: 3.14.2
+Libs: -L${libdir} -lwolfssl
+Cflags: -I${includedir}
