@@ -1,23 +1,14 @@
 /* asn.c
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2018 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * http://www.wolfssl.com
  */
+
 
 
 #ifdef HAVE_CONFIG_H
@@ -1229,6 +1220,8 @@ static const byte extExtKeyUsageEmailProtectOid[] = {43, 6, 1, 5, 5, 7, 3, 4};
 static const byte extExtKeyUsageTimestampOid[]    = {43, 6, 1, 5, 5, 7, 3, 8};
 static const byte extExtKeyUsageOcspSignOid[]     = {43, 6, 1, 5, 5, 7, 3, 9};
 
+static const byte extExtKeyUsageIpsecIkeIntermed[]= {43, 6, 1, 5, 5, 8, 2, 2};
+
 /* kdfType */
 static const byte pbkdf2Oid[] = {42, 134, 72, 134, 247, 13, 1, 5, 12};
 
@@ -1582,7 +1575,7 @@ const byte* OidFromId(word32 id, word32 type, word32* oidSz)
                     oid = extExtKeyUsageServerAuthOid;
                     *oidSz = sizeof(extExtKeyUsageServerAuthOid);
                     break;
-                case EKU_CLIENT_AUTH_OID:
+                case EKU_CLIENT_AUTH_OID: /* Could be conflicedt with IpsecIkeIntermed */
                     oid = extExtKeyUsageClientAuthOid;
                     *oidSz = sizeof(extExtKeyUsageClientAuthOid);
                     break;
@@ -1733,6 +1726,19 @@ const byte* OidFromId(word32 id, word32 type, word32* oidSz)
     }
 
     return oid;
+}
+
+static const byte* OidFromId_conflict(const byte *checkOid, const byte *actualOid)
+{
+    int check_digit;
+    /* extExtKeyUsageClientAuthOid could be conflilcted 
+                          with extExtKeyUsageIpsecIkeIntermed */
+    if(checkOid == extExtKeyUsageClientAuthOid) {
+        check_digit = sizeof(extExtKeyUsageIpsecIkeIntermed) - 2;
+         if(actualOid[check_digit] == extExtKeyUsageIpsecIkeIntermed[check_digit])
+             return extExtKeyUsageIpsecIkeIntermed;
+    }
+    return checkOid;
 }
 
 #ifdef HAVE_OID_ENCODING
@@ -1941,6 +1947,7 @@ int GetObjectId(const byte* input, word32* inOutIdx, word32* oid,
 
         if (oidType != oidIgnoreType) {
             checkOid = OidFromId(*oid, oidType, &checkOidSz);
+            checkOid = OidFromId_conflict(checkOid, actualOid);
 
         #ifdef ASN_DUMP_OID
             /* support for dumping OID information */
