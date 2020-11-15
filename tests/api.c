@@ -14527,7 +14527,7 @@ static void test_wolfSSL_EVP_Digest(void)
 
 static void test_wolfSSL_EVP_MD_size(void)
 {
-#ifdef OPENSSL_EXTRA
+#if defined(OPENSSL_EXTRA) && defined(EVP_MD_size)
 
     WOLFSSL_EVP_MD_CTX mdCtx;
 
@@ -14876,6 +14876,43 @@ static void test_wolfSSL_X509_STORE_CTX(void)
     printf(resultFmt, passed);
     #endif /* defined(OPENSSL_EXTRA) && !defined(NO_CERTS) && \
              !defined(NO_FILESYSTEM) && !defined(NO_RSA) */
+}
+
+static void test_wolfSSL_X509_STORE(void)
+{
+#if defined(OPENSSL_EXTRA) && !defined(NO_RSA)
+    X509_STORE *store;
+
+#ifdef HAVE_CRL
+    X509 *x509;
+    const char svrCert[] = "./certs/server-cert.pem";
+
+    printf(testingFmt, "test_wolfSSL_X509_STORE");
+    AssertNotNull(store = (X509_STORE *)X509_STORE_new());
+    AssertNotNull((x509 =
+                       wolfSSL_X509_load_certificate_file(svrCert, SSL_FILETYPE_PEM)));
+    AssertIntEQ(X509_STORE_add_cert(store, x509), SSL_SUCCESS);
+    X509_free(x509);
+#endif /* HAVE_CRL */
+
+#ifndef WOLFCRYPT_ONLY
+    {
+        SSL_CTX *ctx;
+#ifndef NO_WOLFSSL_SERVER
+        AssertNotNull(ctx = SSL_CTX_new(wolfSSLv23_server_method()));
+#else
+        AssertNotNull(ctx = SSL_CTX_new(wolfSSLv23_client_method()));
+#endif
+        AssertNotNull(store = (X509_STORE *)X509_STORE_new());
+        SSL_CTX_set_cert_store(ctx, store);
+        AssertNotNull(store = (X509_STORE *)X509_STORE_new());
+        SSL_CTX_set_cert_store(ctx, store);
+        SSL_CTX_free(ctx);
+    }
+#endif
+    printf(resultFmt, passed);
+#endif
+    return;
 }
 
 static void test_wolfSSL_X509_STORE_set_flags(void)
@@ -17755,6 +17792,7 @@ void ApiTest(void)
     test_wolfSSL_set_options();
     test_wolfSSL_X509_STORE_CTX();
     test_wolfSSL_msgCb();
+    test_wolfSSL_X509_STORE();
     test_wolfSSL_X509_STORE_set_flags();
     test_wolfSSL_X509_LOOKUP_load_file();
     test_wolfSSL_X509_NID();

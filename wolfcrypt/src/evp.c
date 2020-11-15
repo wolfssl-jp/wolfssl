@@ -1,12 +1,22 @@
 /* evp.c
  *
- * Copyright (C) 2006-2018 wolfSSL Inc.  All rights reserved.
+ * Copyright (C) 2006-2017 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
- * Contact licensing@wolfssl.com with any questions or comments.
+ * wolfSSL is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * http://www.wolfssl.com
+ * wolfSSL is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
  */
 
 
@@ -306,30 +316,31 @@ WOLFSSL_API int wolfSSL_EVP_CipherUpdate(WOLFSSL_EVP_CIPHER_CTX *ctx,
     int blocks;
     int fill;
 
-    if ((ctx == NULL) || (inl < 0) ||
-        (outl == NULL)|| (out == NULL) || (in == NULL))
-        return WOLFSSL_FAILURE;
     WOLFSSL_ENTER("wolfSSL_EVP_CipherUpdate");
+    if ((ctx == NULL) || (inl < 0) || (outl == NULL)|| (in == NULL)) {
+        WOLFSSL_MSG("Bad argument");
+        return WOLFSSL_FAILURE;
+    }
 
     *outl = 0;
     if (inl == 0) return WOLFSSL_SUCCESS;
-    
     if (ctx->bufUsed > 0) { /* concatinate them if there is anything */
         fill = fillBuff(ctx, in, inl);
         inl -= fill;
         in  += fill;
     }
+
     /* check if the buff is full, and if so flash it out */
     if (ctx->bufUsed == ctx->block_size) {
-        byte *output = out;
+        byte* output = out;
 
         /* During decryption we save the last block to check padding on Final.
          * Update the last block stored if one has already been stored */
         if (ctx->enc == 0) {
             if (ctx->lastUsed == 1) {
                 XMEMCPY(out, ctx->lastBlock, ctx->block_size);
-                *outl += ctx->block_size;
-                out += ctx->block_size;
+                *outl+= ctx->block_size;
+                out  += ctx->block_size;
             }
             output = ctx->lastBlock; /* redirect output to last block buffer */
             ctx->lastUsed = 1;
@@ -363,8 +374,9 @@ WOLFSSL_API int wolfSSL_EVP_CipherUpdate(WOLFSSL_EVP_CIPHER_CTX *ctx,
         }
 
         /* process blocks */
-        if (evpCipherBlock(ctx, out, in, blocks * ctx->block_size) == 0)
+        if (evpCipherBlock(ctx, out, in, blocks * ctx->block_size) == 0) {
             return WOLFSSL_FAILURE;
+        }
         PRINT_BUF(in, ctx->block_size*blocks);
         PRINT_BUF(out,ctx->block_size*blocks);
         inl  -= ctx->block_size * blocks;
@@ -373,7 +385,7 @@ WOLFSSL_API int wolfSSL_EVP_CipherUpdate(WOLFSSL_EVP_CIPHER_CTX *ctx,
             if ((ctx->flags & WOLFSSL_EVP_CIPH_NO_PADDING) ||
                     (ctx->block_size == 1)) {
                 ctx->lastUsed = 0;
-                *outl+= ctx->block_size * blocks;
+                *outl += ctx->block_size * blocks;
             } else {
                 /* in the case of decryption and padding, store the last block
                  * here in order to verify the padding when Final is called */
@@ -387,15 +399,16 @@ WOLFSSL_API int wolfSSL_EVP_CipherUpdate(WOLFSSL_EVP_CIPHER_CTX *ctx,
                 *outl += ctx->block_size * blocks;
             }
         } else {
-            *outl+= ctx->block_size * blocks;
+            *outl += ctx->block_size * blocks;
         }
     }
+
+
     if (inl > 0) {
         /* put fraction into buff */
         fillBuff(ctx, in, inl);
         /* no increase of outl */
     }
-
     (void)out; /* silence warning in case not read */
 
     return WOLFSSL_SUCCESS;
@@ -425,41 +438,64 @@ WOLFSSL_API int  wolfSSL_EVP_CipherFinal(WOLFSSL_EVP_CIPHER_CTX *ctx,
                                    unsigned char *out, int *outl)
 {
     int fl;
-    if (ctx == NULL || out == NULL) return BAD_FUNC_ARG;
+    int ret = WOLFSSL_SUCCESS;
+    if (ctx == NULL || out == NULL || outl == NULL)
+        return WOLFSSL_FAILURE;
+
     WOLFSSL_ENTER("wolfSSL_EVP_CipherFinal");
     if (ctx->flags & WOLFSSL_EVP_CIPH_NO_PADDING) {
         if (ctx->bufUsed != 0) return WOLFSSL_FAILURE;
         *outl = 0;
-        return WOLFSSL_SUCCESS;
     }
-    if (ctx->enc) {
+    else if (ctx->enc) {
         if (ctx->block_size == 1) {
             *outl = 0;
-            return WOLFSSL_SUCCESS;
         }
-        if ((ctx->bufUsed >= 0) && (ctx->block_size != 1)) {
+        else if ((ctx->bufUsed >= 0) && (ctx->block_size != 1)) {
             padBlock(ctx);
             PRINT_BUF(ctx->buf, ctx->block_size);
-            if (evpCipherBlock(ctx, out, ctx->buf, ctx->block_size) == 0)
-                return WOLFSSL_FAILURE;
-
-            PRINT_BUF(out, ctx->block_size);
-            *outl = ctx->block_size;
+            if (evpCipherBlock(ctx, out, ctx->buf, ctx->block_size) == 0) {
+                ret = WOLFSSL_FAILURE;
+            }
+            else {
+                PRINT_BUF(out, ctx->block_size);
+                *outl = ctx->block_size;
+            }
         }
-    } else {
+    }
+    else {
         if (ctx->block_size == 1) {
             *outl = 0;
-            return WOLFSSL_SUCCESS;
         }
-        if (ctx->lastUsed) {
+        else if ((ctx->bufUsed % ctx->block_size) != 0) {
+            *outl = 0;
+            /* not enough padding for decrypt */
+            ret = WOLFSSL_FAILURE;
+        }
+        else if (ctx->lastUsed) {
             PRINT_BUF(ctx->lastBlock, ctx->block_size);
             if ((fl = checkPad(ctx, ctx->lastBlock)) >= 0) {
                 XMEMCPY(out, ctx->lastBlock, fl);
                 *outl = fl;
-            } else return 0;
+                if (ctx->lastUsed == 0 && ctx->bufUsed == 0) {
+                    /* return error in cases where the block length is incorrect */
+                    ret = WOLFSSL_FAILURE;
+                }
+            }
+            else {
+                ret = WOLFSSL_FAILURE;
+            }
+        }
+        else if (ctx->lastUsed == 0 && ctx->bufUsed == 0) {
+            /* return error in cases where the block length is incorrect */
+            ret = WOLFSSL_FAILURE;
         }
     }
-    return WOLFSSL_SUCCESS;
+    if (ret == WOLFSSL_SUCCESS) {
+        /* reset cipher state after final */
+        wolfSSL_EVP_CipherInit(ctx, NULL, NULL, NULL, -1);
+    }
+    return ret;
 }
 
 WOLFSSL_API int wolfSSL_EVP_CIPHER_CTX_block_size(const WOLFSSL_EVP_CIPHER_CTX *ctx)

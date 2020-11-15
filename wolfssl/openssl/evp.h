@@ -231,7 +231,6 @@ typedef WOLFSSL_EVP_PKEY_CTX EVP_PKEY_CTX;
 WOLFSSL_API void wolfSSL_EVP_init(void);
 WOLFSSL_API int  wolfSSL_EVP_MD_size(const WOLFSSL_EVP_MD* md);
 WOLFSSL_API int  wolfSSL_EVP_MD_type(const WOLFSSL_EVP_MD *md);
-WOLFSSL_API int  wolfSSL_EVP_MD_block_size(const WOLFSSL_EVP_MD *md);
 
 WOLFSSL_API WOLFSSL_EVP_MD_CTX *wolfSSL_EVP_MD_CTX_new (void);
 WOLFSSL_API void                wolfSSL_EVP_MD_CTX_free(WOLFSSL_EVP_MD_CTX* ctx);
@@ -240,8 +239,6 @@ WOLFSSL_API int  wolfSSL_EVP_MD_CTX_cleanup(WOLFSSL_EVP_MD_CTX* ctx);
 WOLFSSL_API int  wolfSSL_EVP_MD_CTX_copy(WOLFSSL_EVP_MD_CTX *out, const WOLFSSL_EVP_MD_CTX *in);
 WOLFSSL_API int  wolfSSL_EVP_MD_CTX_copy_ex(WOLFSSL_EVP_MD_CTX *out, const WOLFSSL_EVP_MD_CTX *in);
 WOLFSSL_API int  wolfSSL_EVP_MD_CTX_type(const WOLFSSL_EVP_MD_CTX *ctx);
-WOLFSSL_API int  wolfSSL_EVP_MD_CTX_size(const WOLFSSL_EVP_MD_CTX *ctx);
-WOLFSSL_API int  wolfSSL_EVP_MD_CTX_block_size(const WOLFSSL_EVP_MD_CTX *ctx);
 WOLFSSL_API const WOLFSSL_EVP_MD *wolfSSL_EVP_MD_CTX_md(const WOLFSSL_EVP_MD_CTX *ctx);
 WOLFSSL_API const WOLFSSL_EVP_CIPHER *wolfSSL_EVP_get_cipherbyname(const char *name);
 WOLFSSL_API const WOLFSSL_EVP_MD     *wolfSSL_EVP_get_digestbyname(const char *name);
@@ -463,7 +460,6 @@ typedef WOLFSSL_EVP_CIPHER_CTX EVP_CIPHER_CTX;
 #define EVP_idea_cbc     wolfSSL_EVP_idea_cbc
 #define EVP_enc_null     wolfSSL_EVP_enc_null
 
-#define EVP_MD_size             wolfSSL_EVP_MD_size
 #define EVP_MD_CTX_new          wolfSSL_EVP_MD_CTX_new
 #define EVP_MD_CTX_create       wolfSSL_EVP_MD_CTX_new
 #define EVP_MD_CTX_free         wolfSSL_EVP_MD_CTX_free

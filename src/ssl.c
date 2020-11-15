@@ -7763,7 +7763,7 @@ void* wolfSSL_X509_get_ext_d2i(const WOLFSSL_X509* x509,
 
 
 /* this function makes the assumption that out buffer is big enough for digest*/
-int wolfSSL_EVP_Digest(unsigned char* in, int inSz, unsigned char* out,
+WOLFSSL_API int wolfSSL_EVP_Digest(unsigned char* in, int inSz, unsigned char* out,
                               unsigned int* outSz, const WOLFSSL_EVP_MD* evp,
                               WOLFSSL_ENGINE* eng)
 {
@@ -12157,6 +12157,13 @@ int wolfSSL_set_compression(WOLFSSL* ssl)
             wolfSSL_CertManagerFree(ctx->cm);
         }
         ctx->cm               = str->cm;
+
+        /* free existing store if it exists */
+        if (ctx->x509_store_pt != NULL) {
+            /* cert manager was free'd a little earlier in this function */
+            ctx->x509_store_pt->cm = NULL;
+        }
+        wolfSSL_X509_STORE_free(ctx->x509_store_pt);
         ctx->x509_store.cache = str->cache;
         ctx->x509_store_pt    = str; /* take ownership of store and free it
                                         with CTX free */
@@ -13308,14 +13315,6 @@ int wolfSSL_EVP_MD_type(const WOLFSSL_EVP_MD *md)
         return wolfSSL_EVP_MD_CTX_copy_ex(out, in);
     }
 
-    /* returns digest size */
-    int wolfSSL_EVP_MD_CTX_size(const WOLFSSL_EVP_MD_CTX *ctx) {
-        return(wolfSSL_EVP_MD_size(wolfSSL_EVP_MD_CTX_md(ctx)));
-    }
-    /* returns block size */
-    int wolfSSL_EVP_MD_CTX_block_size(const WOLFSSL_EVP_MD_CTX *ctx) {
-        return(wolfSSL_EVP_MD_block_size(wolfSSL_EVP_MD_CTX_md(ctx)));
-    }
 
     /* copies structure in to the structure out
      *
@@ -13574,11 +13573,15 @@ int wolfSSL_EVP_MD_type(const WOLFSSL_EVP_MD *md)
             WOLFSSL_MSG("no type set");
             return 0;   /* failure */
         }
-        if (ctx->cipherType == WOLFSSL_EVP_CIPH_TYPE_INIT){
-            ctx->bufUsed = 0;
-            ctx->lastUsed = 0;
-            ctx->flags   = 0;
+        if (ctx->cipherType == WOLFSSL_EVP_CIPH_TYPE_INIT)
+        {
+            /* only first EVP_CipherInit invoke. ctx->cipherType is set below */
+            XMEMSET(&ctx->cipher, 0, sizeof(ctx->cipher));
+            ctx->flags = 0;
         }
+        /* always clear buffer state */
+        ctx->bufUsed = 0;
+        ctx->lastUsed = 0;
         ret = 0;
 #ifndef NO_AES
     #ifdef HAVE_AES_CBC
@@ -25848,49 +25851,6 @@ const WOLFSSL_EVP_MD* wolfSSL_EVP_ripemd160(void)
     return NULL;
 }
 #endif
-
-
-int wolfSSL_EVP_MD_block_size(const WOLFSSL_EVP_MD* type)
-{
-    WOLFSSL_MSG("wolfSSL_EVP_MD_block_size");
-
-    if (type == NULL) {
-        WOLFSSL_MSG("No md type arg");
-        return BAD_FUNC_ARG;
-    }
-
-    if (XSTRNCMP(type, "SHA256", 6) == 0) {
-        return WC_SHA256_BLOCK_SIZE;
-    }
-#ifndef NO_MD5
-    else if (XSTRNCMP(type, "MD5", 3) == 0) {
-        return WC_MD5_BLOCK_SIZE;
-    }
-#endif
-#ifdef WOLFSSL_SHA224
-    else if (XSTRNCMP(type, "SHA224", 6) == 0) {
-        return WC_SHA224_BLOCK_SIZE;
-    }
-#endif
-#ifdef WOLFSSL_SHA384
-    else if (XSTRNCMP(type, "SHA384", 6) == 0) {
-        return WC_SHA384_BLOCK_SIZE;
-    }
-#endif
-#ifdef WOLFSSL_SHA512
-    else if (XSTRNCMP(type, "SHA512", 6) == 0) {
-        return WC_SHA512_BLOCK_SIZE;
-    }
-#endif
-#ifndef NO_SHA
-    /* has to be last since would pick or 256, 384, or 512 too */
-    else if (XSTRNCMP(type, "SHA", 3) == 0) {
-        return WC_SHA_BLOCK_SIZE;
-    }
-#endif
-
-    return BAD_FUNC_ARG;
-}
 
 int wolfSSL_EVP_MD_size(const WOLFSSL_EVP_MD* type)
 {
