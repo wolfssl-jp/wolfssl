@@ -12294,6 +12294,7 @@ int ProcessReply(WOLFSSL* ssl)
                     return BUFFER_ERROR;
                 }
             }
+            ssl->keys.padSz = 0;
             ssl->options.processReply = decryptMessage;
             startIdx = ssl->buffers.inputBuffer.idx;  /* in case > 1 msg per */
             FALL_THROUGH;
@@ -12462,7 +12463,19 @@ int ProcessReply(WOLFSSL* ssl)
 
         /* the record layer is here */
         case runProcessingOneMessage:
-
+        #ifdef WOLFSSL_DEBUG_TLS
+        {
+            char debug[256];
+            XSNPRINTF(debug, sizeof(debug),"PTXT Info: T: %d L: %d P: %d I: %d\n",
+                    ssl->buffers.inputBuffer.length -
+                    ssl->keys.padSz -
+                    ssl->buffers.inputBuffer.idx,
+                    ssl->buffers.inputBuffer.length,
+                    ssl->keys.padSz,
+                    ssl->buffers.inputBuffer.idx);
+            WOLFSSL_MSG(debug);
+        }
+        #endif
             if (ssl->buffers.inputBuffer.length - ssl->keys.padSz -
                               ssl->buffers.inputBuffer.idx > MAX_PLAINTEXT_SZ) {
                 WOLFSSL_MSG("Plaintext too long");
