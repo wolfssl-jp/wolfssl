@@ -1,23 +1,14 @@
 /* evp.c
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2018 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * http://www.wolfssl.com
  */
+
 
 #if !defined(WOLFSSL_EVP_INCLUDED)
     #ifndef WOLFSSL_IGNORE_FILE_WARN
@@ -316,7 +307,8 @@ WOLFSSL_API int wolfSSL_EVP_CipherUpdate(WOLFSSL_EVP_CIPHER_CTX *ctx,
     int fill;
 
     if ((ctx == NULL) || (inl < 0) ||
-        (outl == NULL)|| (out == NULL) || (in == NULL)) return BAD_FUNC_ARG;
+        (outl == NULL)|| (out == NULL) || (in == NULL))
+        return WOLFSSL_FAILURE;
     WOLFSSL_ENTER("wolfSSL_EVP_CipherUpdate");
 
     *outl = 0;
@@ -327,30 +319,49 @@ WOLFSSL_API int wolfSSL_EVP_CipherUpdate(WOLFSSL_EVP_CIPHER_CTX *ctx,
         inl -= fill;
         in  += fill;
     }
-    if ((ctx->enc == 0)&& (ctx->lastUsed == 1)) {
-        PRINT_BUF(ctx->lastBlock, ctx->block_size);
-        XMEMCPY(out, ctx->lastBlock, ctx->block_size);
-        *outl+= ctx->block_size;
-        out  += ctx->block_size;
-    }
+    /* check if the buff is full, and if so flash it out */
     if (ctx->bufUsed == ctx->block_size) {
-        /* the buff is full, flash out */
-        PRINT_BUF(ctx->buf, ctx->block_size);
-        if (evpCipherBlock(ctx, out, ctx->buf, ctx->block_size) == 0)
-            return WOLFSSL_FAILURE;
-        PRINT_BUF(out, ctx->block_size);
+        byte *output = out;
+
+        /* During decryption we save the last block to check padding on Final.
+         * Update the last block stored if one has already been stored */
         if (ctx->enc == 0) {
+            if (ctx->lastUsed == 1) {
+                XMEMCPY(out, ctx->lastBlock, ctx->block_size);
+                *outl += ctx->block_size;
+                out += ctx->block_size;
+            }
+            output = ctx->lastBlock; /* redirect output to last block buffer */
             ctx->lastUsed = 1;
-            XMEMCPY(ctx->lastBlock, out, ctx->block_size);
-        } else {
+        }
+
+        PRINT_BUF(ctx->buf, ctx->block_size);
+        if (evpCipherBlock(ctx, output, ctx->buf, ctx->block_size) == 0) {
+            return WOLFSSL_FAILURE;
+        }
+        PRINT_BUF(out, ctx->block_size);
+        ctx->bufUsed = 0;
+
+        /* if doing encryption update the new output block, decryption will
+         * always have the last block saved for when Final is called */
+        if ((ctx->enc != 0)) {
             *outl+= ctx->block_size;
             out  += ctx->block_size;
         }
-        ctx->bufUsed = 0;
     }
 
     blocks = inl / ctx->block_size;
     if (blocks > 0) {
+        /* During decryption we save the last block to check padding on Final.
+         * Update the last block stored if one has already been stored */
+        if ((ctx->enc == 0) && (ctx->lastUsed == 1)) {
+            PRINT_BUF(ctx->lastBlock, ctx->block_size);
+            XMEMCPY(out, ctx->lastBlock, ctx->block_size);
+            *outl += ctx->block_size;
+            out += ctx->block_size;
+            ctx->lastUsed = 0;
+        }
+
         /* process blocks */
         if (evpCipherBlock(ctx, out, in, blocks * ctx->block_size) == 0)
             return WOLFSSL_FAILURE;
@@ -362,12 +373,18 @@ WOLFSSL_API int wolfSSL_EVP_CipherUpdate(WOLFSSL_EVP_CIPHER_CTX *ctx,
             if ((ctx->flags & WOLFSSL_EVP_CIPH_NO_PADDING) ||
                     (ctx->block_size == 1)) {
                 ctx->lastUsed = 0;
-                XMEMCPY(ctx->lastBlock, &out[ctx->block_size * blocks], ctx->block_size);
                 *outl+= ctx->block_size * blocks;
             } else {
-                ctx->lastUsed = 1;
-                XMEMCPY(ctx->lastBlock, &out[ctx->block_size * (blocks-1)], ctx->block_size);
-                *outl+= ctx->block_size * (blocks-1);
+                /* in the case of decryption and padding, store the last block
+                 * here in order to verify the padding when Final is called */
+                if (inl == 0) { /* if not 0 then we know leftovers are checked*/
+                    ctx->lastUsed = 1;
+                    blocks = blocks - 1; /* save last block to check padding in
+                                          * EVP_CipherFinal call */
+                    XMEMCPY(ctx->lastBlock, &out[ctx->block_size * blocks],
+                            ctx->block_size);
+                }
+                *outl += ctx->block_size * blocks;
             }
         } else {
             *outl+= ctx->block_size * blocks;
