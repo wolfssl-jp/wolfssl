@@ -18765,6 +18765,8 @@ WOLFSSL_STACK* wolfSSL_X509_STORE_CTX_get_chain(WOLFSSL_X509_STORE_CTX* ctx)
                 }
                 else {
                     WOLFSSL_MSG("could not find CA for cert or is self signed");
+                    if (issuer != NULL)
+                        wolfSSL_X509_free(issuer);                  
                 }
             }
         }
