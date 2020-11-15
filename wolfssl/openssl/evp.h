@@ -231,6 +231,7 @@ typedef WOLFSSL_EVP_PKEY_CTX EVP_PKEY_CTX;
 WOLFSSL_API void wolfSSL_EVP_init(void);
 WOLFSSL_API int  wolfSSL_EVP_MD_size(const WOLFSSL_EVP_MD* md);
 WOLFSSL_API int  wolfSSL_EVP_MD_type(const WOLFSSL_EVP_MD *md);
+WOLFSSL_API int  wolfSSL_EVP_MD_block_size(const WOLFSSL_EVP_MD *md);
 
 WOLFSSL_API WOLFSSL_EVP_MD_CTX *wolfSSL_EVP_MD_CTX_new (void);
 WOLFSSL_API void                wolfSSL_EVP_MD_CTX_free(WOLFSSL_EVP_MD_CTX* ctx);
@@ -239,6 +240,8 @@ WOLFSSL_API int  wolfSSL_EVP_MD_CTX_cleanup(WOLFSSL_EVP_MD_CTX* ctx);
 WOLFSSL_API int  wolfSSL_EVP_MD_CTX_copy(WOLFSSL_EVP_MD_CTX *out, const WOLFSSL_EVP_MD_CTX *in);
 WOLFSSL_API int  wolfSSL_EVP_MD_CTX_copy_ex(WOLFSSL_EVP_MD_CTX *out, const WOLFSSL_EVP_MD_CTX *in);
 WOLFSSL_API int  wolfSSL_EVP_MD_CTX_type(const WOLFSSL_EVP_MD_CTX *ctx);
+WOLFSSL_API int  wolfSSL_EVP_MD_CTX_size(const WOLFSSL_EVP_MD_CTX *ctx);
+WOLFSSL_API int  wolfSSL_EVP_MD_CTX_block_size(const WOLFSSL_EVP_MD_CTX *ctx);
 WOLFSSL_API const WOLFSSL_EVP_MD *wolfSSL_EVP_MD_CTX_md(const WOLFSSL_EVP_MD_CTX *ctx);
 WOLFSSL_API const WOLFSSL_EVP_CIPHER *wolfSSL_EVP_get_cipherbyname(const char *name);
 WOLFSSL_API const WOLFSSL_EVP_MD     *wolfSSL_EVP_get_digestbyname(const char *name);
@@ -264,7 +267,9 @@ WOLFSSL_API int wolfSSL_EVP_DigestSignUpdate(WOLFSSL_EVP_MD_CTX *ctx,
                                              const void *d, unsigned int cnt);
 WOLFSSL_API int wolfSSL_EVP_DigestSignFinal(WOLFSSL_EVP_MD_CTX *ctx,
                                             unsigned char *sig, size_t *siglen);
-
+WOLFSSL_API int wolfSSL_EVP_Digest(unsigned char* in, int inSz, unsigned char* out,
+                              unsigned int* outSz, const WOLFSSL_EVP_MD* evp,
+                              WOLFSSL_ENGINE* eng);
 #ifndef NO_MD5
 WOLFSSL_API int wolfSSL_EVP_BytesToKey(const WOLFSSL_EVP_CIPHER*,
                               const WOLFSSL_EVP_MD*, const unsigned char*,
@@ -458,16 +463,18 @@ typedef WOLFSSL_EVP_CIPHER_CTX EVP_CIPHER_CTX;
 #define EVP_idea_cbc     wolfSSL_EVP_idea_cbc
 #define EVP_enc_null     wolfSSL_EVP_enc_null
 
-#define EVP_MD_size        wolfSSL_EVP_MD_size
-#define EVP_MD_CTX_new     wolfSSL_EVP_MD_CTX_new
-#define EVP_MD_CTX_create  wolfSSL_EVP_MD_CTX_new
-#define EVP_MD_CTX_free    wolfSSL_EVP_MD_CTX_free
-#define EVP_MD_CTX_destroy wolfSSL_EVP_MD_CTX_free
-#define EVP_MD_CTX_init    wolfSSL_EVP_MD_CTX_init
-#define EVP_MD_CTX_cleanup wolfSSL_EVP_MD_CTX_cleanup
-#define EVP_MD_CTX_md      wolfSSL_EVP_MD_CTX_md
-#define EVP_MD_CTX_type    wolfSSL_EVP_MD_CTX_type
-#define EVP_MD_type        wolfSSL_EVP_MD_type
+#define EVP_MD_size             wolfSSL_EVP_MD_size
+#define EVP_MD_CTX_new          wolfSSL_EVP_MD_CTX_new
+#define EVP_MD_CTX_create       wolfSSL_EVP_MD_CTX_new
+#define EVP_MD_CTX_free         wolfSSL_EVP_MD_CTX_free
+#define EVP_MD_CTX_destroy      wolfSSL_EVP_MD_CTX_free
+#define EVP_MD_CTX_init         wolfSSL_EVP_MD_CTX_init
+#define EVP_MD_CTX_cleanup      wolfSSL_EVP_MD_CTX_cleanup
+#define EVP_MD_CTX_md           wolfSSL_EVP_MD_CTX_md
+#define EVP_MD_CTX_type         wolfSSL_EVP_MD_CTX_type
+#define EVP_MD_CTX_size         wolfSSL_EVP_MD_CTX_size
+#define EVP_MD_CTX_block_size   wolfSSL_EVP_MD_CTX_block_size
+#define EVP_MD_type             wolfSSL_EVP_MD_type
 
 #define EVP_DigestInit     wolfSSL_EVP_DigestInit
 #define EVP_DigestInit_ex  wolfSSL_EVP_DigestInit_ex
