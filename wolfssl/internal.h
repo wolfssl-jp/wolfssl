@@ -3024,6 +3024,9 @@ struct WOLFSSL_CTX {
     Srp*  srp;  /* TLS Secure Remote Password Protocol*/
     byte* srp_password;
 #endif
+#if defined(OPENSSL_EXTRA) && defined(HAVE_SECRET_CALLBACK)
+    wolfSSL_CTX_keylog_cb_func Keylog_cb;
+#endif /* OPENSSL_EXTRA && HAVE_SECRET_CALLBACK */
 #ifdef WOLFSSL_STATIC_EPHEMERAL
     StaticKeyExchangeInfo_t staticKE;
 #endif

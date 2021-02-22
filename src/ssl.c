@@ -55069,4 +55069,29 @@ int wolfSSL_CTX_set_ecdh_auto(WOLFSSL_CTX* ctx, int onoff)
 }
 #endif /* OPENSSL_EXTRA */
 
+#if defined(OPENSSL_EXTRA) && defined(HAVE_SECRET_CALLBACK)
+/*
+ * This API accepts an user callback which puts key-log records into
+ * a KEY LOGFILE. The callback is stored into a CTX and propagated to
+ * each SSL oject on it's creation timing.
+ */
+void wolfSSL_CTX_set_keylog_callback(WOLFSSL_CTX* ctx, wolfSSL_CTX_keylog_cb_func cb)
+{
+    WOLFSSL_ENTER("wolfSSL_CTX_set_keylog_callback");
+  /* stores the callback into WOLFSSL_CTX */
+    if (ctx != NULL) {
+        ctx->Keylog_cb = cb;
+    }
+}
+wolfSSL_CTX_keylog_cb_func wolfSSL_CTX_get_keylog_callback(
+    const WOLFSSL_CTX* ctx)
+{
+    WOLFSSL_ENTER("wolfSSL_CTX_get_keylog_callback");
+    if (ctx != NULL)
+        return ctx->Keylog_cb;
+    else
+        return NULL;
+}
+#endif /* OPENSSL_EXTRA && HAVE_SECRET_CALLBACK */
+
 #endif /* !WOLFCRYPT_ONLY */
