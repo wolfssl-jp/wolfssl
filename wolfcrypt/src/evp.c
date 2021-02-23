@@ -6948,15 +6948,15 @@ void wolfSSL_EVP_PKEY_free(WOLFSSL_EVP_PKEY* key)
 #if defined(OPENSSL_EXTRA)
 static int ToHex( byte in, byte* hex )
 {
-    if ( hex == NULL )
-        return 0;
-
+    byte UpNibble,LwNibble;
     byte HexTbl[16] = { '0','1','2','3','4','5','6','7',
                         '8','9','a','b','c','d','e','f' };
 
-    byte UpNibble = (in >> 4) & 0x0f;
-    byte LwNibble =  in & 0x0f;
+    if ( hex == NULL )
+        return 0;
 
+    UpNibble = (in >> 4) & 0x0f;
+    LwNibble =  in & 0x0f;
     *hex++ = HexTbl[UpNibble];
     *hex   = HexTbl[LwNibble];
     return 2;
@@ -6964,12 +6964,14 @@ static int ToHex( byte in, byte* hex )
 /* convert input value to upto five digit decimal */
 static int ToDec(word32 in, byte* hex)
 {
+    int     i = 0;
+    byte    dgt[5];
+    word32  quo;
+    int     written;
+
     if (hex == NULL || in > 99999 )
         return 0;
-
-    byte    dgt[5];
-    word32  quo = in;
-
+    quo = in;
     dgt[4] = quo % 10;
     quo    = quo / 10;
     dgt[3] = quo % 10;
@@ -6981,7 +6983,6 @@ static int ToDec(word32 in, byte* hex)
     dgt[0] = quo % 10;
 
     /* to remove leading zero */
-    int i = 0;
     if (dgt[0] == 0) {
         if (dgt[1] == 0) {
             if (dgt[2] == 0) {
@@ -6996,39 +6997,45 @@ static int ToDec(word32 in, byte* hex)
     }else
         i = 0;
 
-    int wrote = 5 - i;
+    written = 5 - i;
 
     for (; i < 5; i++) {
         *hex++ = dgt[i] + '0';
     }
-    return wrote;
+    return written;
 }
 static int Indent(int indents, byte* dst )
 {
+    int i;
     if (dst == NULL)
         return 0;
 
-    for (int i = indents; i; i--) {*dst++ = ' ';}
+    for (i = indents; i; i--) {*dst++ = ' ';}
     return indents;
 }
 static int DumpElement(WOLFSSL_BIO* out, const byte* input,
     int inlen, int indent)
 {
-    int idx = 0;
-    int wsz = 0;
-    byte    buff[128] = { 0 };
+    word32 in = 0;
+    word32 i;
+    int    idx = 0;
+    int    wsz = 0;
+    byte   buff[128] = { 0 };
+    word32 line;
+    word32 len;
+    word32 left;
+    const  byte* point;
+
+    point = input;
+    len  = inlen;
+    line = len / 15;
+    left = len % 15;
 
     /* print pub element */
     idx = 0;
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    const byte* point = input;
-    word32 len = inlen;
-    word32 line = len / 15;
-    word32 left = len % 15;
-    word32 in = 0;
-    word32 i;
 
     while (line) {
         idx = 0;
@@ -7089,6 +7096,9 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     word32 oid;
     byte   tag;
     (void)pctx;
+    int idx = 0;
+    int wsz = 0;
+    word32 i;
 
     if (GetSequence(pkey, &inOutIdx, &length, pkeySz) < 0)
         return WOLFSSL_FAILURE;
@@ -7155,8 +7165,8 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
 
     /* print out public key elements */
 
-    int idx = 0;
-    int wsz = 0;
+    idx = 0;
+    wsz = 0;
 
     wsz = Indent(indent, buff + idx);
     idx += wsz;
@@ -7199,7 +7209,7 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     idx += wsz;
 
     word32 exponent = 0;
-    for (word32 i = 0; i < eSz; i++) {
+    for (i = 0; i < eSz; i++) {
         exponent <<= 8;
         exponent += e[i];
     }
@@ -7210,7 +7220,7 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     XSTRNCPY((char*)(buff + idx), " (0x", wsz);
     idx += wsz;
 
-    for (word32 i = 0; i < eSz; i++) {
+    for (i = 0; i < eSz; i++) {
         wsz = ToHex(e[i], buff + idx);
         idx += wsz;
     }
@@ -7240,8 +7250,11 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     const char* nistCurveName = NULL;
     int     nid;
     WOLFSSL_ObjectInfo* oi = NULL;
-
+    word32  i;
     inOutIdx = 0;
+    int idx = 0;
+    int wsz = 0;
+
     res = wc_EccPublicKeyDecode_ex(pkey, &inOutIdx, &curveId,
                                     &pointIdx, &pointSz, pkeySz);
     if (res != 0)
@@ -7253,7 +7266,7 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
 
     oi = (WOLFSSL_ObjectInfo*)wolfssl_object_info;
     OIDName = NULL;
-    for (size_t i = 0;i < wolfssl_object_info_sz; i++) {
+    for (i = 0;i < wolfssl_object_info_sz; i++) {
         if ( (oi + i)->type == oidCurveType && (oi + i)->nid == nid) {
             OIDName = (char*)((oi + i)->sName);
             break;
@@ -7263,8 +7276,8 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     /* get NIST curve name */
     nistCurveName = wolfSSL_EC_curve_nid2nist(nid);
 
-    int idx = 0;
-    int wsz = 0;
+    idx = 0;
+    wsz = 0;
 
     wsz = Indent(indent, buff + idx);
     idx += wsz;
@@ -7307,7 +7320,7 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     XSTRNCPY((char*)(buff + idx), "ASN1 OID: ", wsz);
     idx += wsz;
 
-    wsz = XSTRLEN(OIDName);
+    wsz = (int)XSTRLEN(OIDName);
     XSTRNCPY((char*)(buff + idx), OIDName, wsz);
     idx += wsz;
 
@@ -7328,7 +7341,7 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     XSTRNCPY((char*)(buff + idx), "NIST CURVE: ", wsz);
     idx += wsz;
 
-    wsz = XSTRLEN(nistCurveName);
+    wsz = (int)XSTRLEN(nistCurveName);
     XSTRNCPY((char*)(buff + idx), nistCurveName, wsz);
     idx += wsz;
 
@@ -7355,6 +7368,8 @@ static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     byte    tagFound;
     byte    *p = NULL, * q = NULL, * g = NULL, * y = NULL;
     int     pSz, qSz, gSz, ySz;
+    int idx = 0;
+    int wsz = 0;
 
     inOutIdx = 0;
     if (GetSequence(pkey, &inOutIdx, &length, pkeySz) < 0)
@@ -7431,8 +7446,8 @@ static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     y = (byte*)(pkey + inOutIdx);
     ySz = length;
 
-    int idx = 0;
-    int wsz = 0;
+    idx = 0;
+    wsz = 0;
 
     wsz = Indent(indent, buff + idx);
     idx += wsz;
@@ -7523,6 +7538,8 @@ static int PrintPubKeyDH(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     byte    generator;
     byte*   publicKey = NULL;
     int     publicKeySz;
+    int idx = 0;
+    int wsz = 0;
 
     inOutIdx = 0;
     if (GetSequence(pkey, &inOutIdx, (int*)&length, pkeySz) < 0)
@@ -7586,8 +7603,8 @@ static int PrintPubKeyDH(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     }
 
     /* print elements */
-    int idx = 0;
-    int wsz = 0;
+    idx = 0;
+    wsz = 0;
 
     wsz = Indent(indent, buff + idx);
     idx += wsz;
