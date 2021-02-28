@@ -7092,6 +7092,7 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     int idx = 0;
     int wsz = 0;
     word32 i;
+    word32 exponent = 0;
 
     (void)pctx;
 
@@ -7164,16 +7165,16 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("RSA Public-Key: (") - 1;
+    wsz = sizeof("RSA Public-Key: (") ;
     XSTRNCPY((char*)(buff + idx), "RSA Public-Key: (", wsz );
-    idx += wsz;
+    idx += wsz -1;
 
     wsz = ToDec(bitlen, buff + idx);
     idx += wsz;
 
-    wsz = sizeof(" bit)\n") - 1;
+    wsz = sizeof(" bit)\n");
     XSTRNCPY((char*)(buff + idx), " bit)\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7183,9 +7184,9 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("Modulus:\n") - 1;
+    wsz = sizeof("Modulus:\n");
     XSTRNCPY((char*)(buff + idx), "Modulus:\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7197,11 +7198,10 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("Exponent: ") - 1;
+    wsz = sizeof("Exponent: ");
     XSTRNCPY((char*)(buff + idx), "Exponent: ", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
-    word32 exponent = 0;
     for (i = 0; i < eSz; i++) {
         exponent <<= 8;
         exponent += e[i];
@@ -7209,17 +7209,17 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = ToDec(exponent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof(" (0x") - 1;
+    wsz = sizeof(" (0x");
     XSTRNCPY((char*)(buff + idx), " (0x", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     for (i = 0; i < eSz; i++) {
         wsz = ToHex(e[i], buff + idx);
         idx += wsz;
     }
-    wsz = sizeof(")\n") - 1;
+    wsz = sizeof(")\n");
     XSTRNCPY((char*)(buff + idx), ")\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7230,7 +7230,6 @@ static int PrintPubKeyRSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
 static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     int indent, int bitlen, ASN1_PCTX* pctx)
 {
-    (void)pctx;
 
     int     res = WOLFSSL_SUCCESS;
     byte    buff[128] = { 0 };
@@ -7244,12 +7243,13 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     int     nid;
     WOLFSSL_ObjectInfo* oi = NULL;
     word32  i;
-    inOutIdx = 0;
+
     int idx = 0;
     int wsz = 0;
 
+    (void)pctx;
     res = wc_EccPublicKeyDecode_ex(pkey, &inOutIdx, &curveId,
-                                    &pointIdx, &pointSz, pkeySz);
+                                    &pointIdx, &pointSz, (word32)pkeySz);
     if (res != 0)
         return WOLFSSL_FAILURE;
 
@@ -7273,16 +7273,16 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("Public-Key: (") - 1;
+    wsz = sizeof("Public-Key: (");
     XSTRNCPY((char*)(buff + idx), "Public-Key: (", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wsz = ToDec(bitlen, buff + idx);
     idx += wsz;
 
-    wsz = sizeof(" bit)\n") - 1;
+    wsz = sizeof(" bit)\n");
     XSTRNCPY((char*)(buff + idx), " bit)\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7292,9 +7292,9 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("pub:\n") - 1;
+    wsz = sizeof("pub:\n");
     XSTRNCPY((char*)(buff + idx), "pub:\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7307,17 +7307,17 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("ASN1 OID: ") - 1;
+    wsz = sizeof("ASN1 OID: ");
     XSTRNCPY((char*)(buff + idx), "ASN1 OID: ", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wsz = (int)XSTRLEN(OIDName);
-    XSTRNCPY((char*)(buff + idx), OIDName, wsz);
+    XSTRNCPY((char*)(buff + idx), OIDName, wsz +1);
     idx += wsz;
 
-    wsz = sizeof("\n") - 1;
+    wsz = sizeof("\n");
     XSTRNCPY((char*)(buff + idx), "\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7328,17 +7328,17 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("NIST CURVE: ") - 1;
+    wsz = sizeof("NIST CURVE: ");
     XSTRNCPY((char*)(buff + idx), "NIST CURVE: ", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wsz = (int)XSTRLEN(nistCurveName);
-    XSTRNCPY((char*)(buff + idx), nistCurveName, wsz);
+    XSTRNCPY((char*)(buff + idx), nistCurveName, wsz +1);
     idx += wsz;
 
-    wsz = sizeof("\n") - 1;
+    wsz = sizeof("\n");
     XSTRNCPY((char*)(buff + idx), "\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7441,16 +7441,16 @@ static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("DSA Public-Key: (") - 1;
+    wsz = sizeof("DSA Public-Key: (");
     XSTRNCPY((char*)(buff + idx), "DSA Public-Key: (", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wsz = ToDec(bitlen, buff + idx);
     idx += wsz;
 
-    wsz = sizeof(" bit)\n") - 1;
+    wsz = sizeof(" bit)\n");
     XSTRNCPY((char*)(buff + idx), " bit)\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7460,9 +7460,9 @@ static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("pub:\n") - 1;
+    wsz = sizeof("pub:\n");
     XSTRNCPY((char*)(buff + idx), "pub:\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7474,9 +7474,9 @@ static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("P:\n") - 1;
+    wsz = sizeof("P:\n");
     XSTRNCPY((char*)(buff + idx), "P:\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7488,9 +7488,9 @@ static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("Q:\n") - 1;
+    wsz = sizeof("Q:\n");
     XSTRNCPY((char*)(buff + idx), "Q:\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7502,9 +7502,9 @@ static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("G:\n") - 1;
+    wsz = sizeof("G:\n");
     XSTRNCPY((char*)(buff + idx), "G:\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7596,16 +7596,16 @@ static int PrintPubKeyDH(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("DH Public-Key: (") - 1;
+    wsz = sizeof("DH Public-Key: (");
     XSTRNCPY((char*)(buff + idx), "DH Public-Key: (", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wsz = ToDec(bitlen, buff + idx);
     idx += wsz;
 
-    wsz = sizeof(" bit)\n") - 1;
+    wsz = sizeof(" bit)\n");
     XSTRNCPY((char*)(buff + idx), " bit)\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7614,9 +7614,9 @@ static int PrintPubKeyDH(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("public-key:\n") - 1;
+    wsz = sizeof("public-key:\n");
     XSTRNCPY((char*)(buff + idx), "public-key:\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7627,9 +7627,9 @@ static int PrintPubKeyDH(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("prime:\n") - 1;
+    wsz = sizeof("prime:\n");
     XSTRNCPY((char*)(buff + idx), "prime:\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
@@ -7640,23 +7640,23 @@ static int PrintPubKeyDH(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     wsz = Indent(indent, buff + idx);
     idx += wsz;
 
-    wsz = sizeof("generator: ") - 1;
+    wsz = sizeof("generator: ");
     XSTRNCPY((char*)(buff + idx), "generator: ", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wsz = ToDec(generator, buff + idx);
     idx += wsz;
 
-    wsz = sizeof(" (0x") - 1;
+    wsz = sizeof(" (0x");
     XSTRNCPY((char*)(buff + idx), " (0x", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wsz = ToHex(generator, buff + idx);
     idx += wsz;
 
-    wsz = sizeof(")\n") - 1;
+    wsz = sizeof(")\n");
     XSTRNCPY((char*)(buff + idx), ")\n", wsz);
-    idx += wsz;
+    idx += wsz -1;
 
     wolfSSL_BIO_write(out, buff, idx);
     XMEMSET(buff, 0, sizeof(buff));
