@@ -7350,7 +7350,7 @@ static int PrintPubKeyEC(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
 static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     int indent, int bitlen, ASN1_PCTX* pctx)
 {
-    (void)pctx;
+
     int     length;
     int     res;
     byte    buff[128] = { 0 };
@@ -7363,6 +7363,7 @@ static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     int wsz = 0;
 
     inOutIdx = 0;
+    (void)pctx;
     if (GetSequence(pkey, &inOutIdx, &length, pkeySz) < 0)
         return WOLFSSL_FAILURE;
     if (GetSequence(pkey, &inOutIdx, &length, pkeySz) < 0)
@@ -7516,7 +7517,7 @@ static int PrintPubKeyDSA(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
 static int PrintPubKeyDH(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     int indent, int bitlen, ASN1_PCTX* pctx)
 {
-    (void)pctx;
+
     word32  length;
     byte    buff[128] = { 0 };
     word32  inOutIdx = 0;
@@ -7531,6 +7532,7 @@ static int PrintPubKeyDH(WOLFSSL_BIO* out, const byte* pkey, int pkeySz,
     int wsz = 0;
 
     inOutIdx = 0;
+    (void)pctx;
     if (GetSequence(pkey, &inOutIdx, (int*)&length, pkeySz) < 0)
         return WOLFSSL_FAILURE;
     if (GetSequence(pkey, &inOutIdx, (int*)&length, pkeySz) < 0)
