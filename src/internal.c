@@ -237,15 +237,16 @@ static int SSL_hmac(WOLFSSL* ssl, byte* digest, const byte* in, word32 sz,
      */
     static void ToHexString(const byte* bin, byte* hex, int BinSz)
     {
-        if (bin == NULL || hex == NULL || BinSz < 2)
-            return;
-
         byte HexTbl[16] = { '0','1','2','3','4','5','6','7',
                             '8','9','a','b','c','d','e','f' };
 
         byte UpNibble, LwNibble;
+        int i;
 
-        for (int i = BinSz; i > 0; i--) {
+        if (bin == NULL || hex == NULL || BinSz < 2)
+            return;
+
+        for (i = BinSz; i > 0; i--) {
             UpNibble = (*bin >> 4) & 0x0f;
             LwNibble =  *bin & 0x0f;
 
@@ -263,36 +264,43 @@ static int SSL_hmac(WOLFSSL* ssl, byte* digest, const byte* in, word32 sz,
     static int SessionSecret_callback(WOLFSSL* ssl, void* secret,
                     int* secretSz, void* ctx)
     {
+        wolfSSL_CTX_keylog_cb_func logCb = NULL;
+        int msSz;
+        int hasVal;
+        int i;
+        const char* label = "CLIENT_RANDOM";
+        int labelSz = sizeof("CLIENT_RANDOM");
+        int buffSz;
+        byte* log = NULL;
+
         (void)ctx;
 
         if (ssl == NULL || secret == NULL || *secretSz == 0)
             return BAD_FUNC_ARG;
 
         /* get the user-callback func from CTX*/
-        wolfSSL_CTX_keylog_cb_func callback = ssl->ctx->Keylog_cb;
-        if (callback == NULL)
+        logCb = ssl->ctx->keyLogCb;
+        if (logCb == NULL)
             return 0;
 
         /* need to make sure the given master-secret has a meaningful value */
-        int mssz   = *secretSz;
-        int hasVal = 0;
-        for (int i = 0; i < mssz; i++) {
+        msSz   = *secretSz;
+        hasVal = 0;
+        for (i = 0; i < msSz; i++) {
             if (*((byte*)secret) != 0) {
                 hasVal = 1;
                 break;
             }
         }
         if (hasVal == 0)
-            return 0; /* return sd success */
+            return 0; /* master-secret looks invalid */
 
         /* build up a hex-decoded keylog string
            "CLIENT_RANDOM <hex-encoded client random> <hex-encoded master-secret>"
            note that each keylog string does not have LF.
         */
-        const char* label = "CLIENT_RANDOM";
-        int   labelSz = sizeof("CLIENT_RANDOM");
-        int   buffSz  = labelSz + (RAN_LEN * 2) + 1 + ((*secretSz) * 2) + 1;
-        byte* log     = XMALLOC(buffSz, ssl->heap, DYNAMIC_TYPE_SECRET);
+        buffSz  = labelSz + (RAN_LEN * 2) + 1 + ((*secretSz) * 2) + 1;
+        log     = XMALLOC(buffSz, ssl->heap, DYNAMIC_TYPE_SECRET);
 
         if (log == NULL)
             return MEMORY_E;
@@ -306,7 +314,7 @@ static int SSL_hmac(WOLFSSL* ssl, byte* digest, const byte* in, word32 sz,
         ToHexString((byte*)secret, log + labelSz + RAN_LEN*2 +1, *secretSz);
 
         /* pass the log to the client callback*/
-        callback(ssl, (char*)log);
+        logCb(ssl, (char*)log);
 
         XFREE(log, ssl->heap, DYNAMIC_TYPE_SECRET);
         return 0;
@@ -315,20 +323,21 @@ static int SSL_hmac(WOLFSSL* ssl, byte* digest, const byte* in, word32 sz,
     static int SessionSecret_callback_Tls13(WOLFSSL* ssl, int id,
         const unsigned char* secret, int secretSz, void* ctx)
     {
+        wolfSSL_CTX_keylog_cb_func logCb = NULL;
+        char  label[50];
+        int   labelSz = 0;
+        int   buffSz  = 0;
+        byte* log     = NULL;
+
         (void)ctx;
 
         if (ssl == NULL || secret == NULL || secretSz == 0)
             return BAD_FUNC_ARG;
 
         /* get the user-callback func from CTX*/
-        wolfSSL_CTX_keylog_cb_func callback = ssl->ctx->Keylog_cb;
-        if (callback == NULL)
+        logCb = ssl->ctx->keyLogCb;
+        if (logCb == NULL)
             return 0;
-
-        char  label[50];
-        int   labelSz = 0;
-        int   buffSz  = 0;
-        byte* log     = NULL;
 
         switch (id) {
             case CLIENT_EARLY_TRAFFIC_SECRET:
@@ -390,7 +399,7 @@ static int SSL_hmac(WOLFSSL* ssl, byte* digest, const byte* in, word32 sz,
         XMEMSET(log + labelSz + RAN_LEN * 2, ' ', 1);        /* add space*/
         ToHexString((byte*)secret, log + labelSz + RAN_LEN * 2 + 1, secretSz);
 
-        callback(ssl, (char*)log);
+        logCb(ssl, (char*)log);
 
         XFREE(log, ssl->heap, DYNAMIC_TYPE_SECRET);
         return 0;
@@ -6235,7 +6244,7 @@ int InitSSL(WOLFSSL* ssl, WOLFSSL_CTX* ctx, int writeDup)
 #endif
 #endif
 #if defined(OPENSSL_EXTRA) && defined(HAVE_SECRET_CALLBACK)
-    if (ctx->Keylog_cb != NULL) {
+    if (ctx->keyLogCb != NULL) {
         ssl->sessionSecretCb = SessionSecret_callback;
         ssl->sessionSecretCtx = NULL;
 #if defined(WOLFSSL_TLS13)
