@@ -29743,7 +29743,7 @@ static void test_wolfSSL_Tls12_Key_Logging_test(void)
 {
  #if defined(OPENSSL_EXTRA) && defined(HAVE_SECRET_CALLBACK)
  /* This test is intended for checking whether keylog callback is called
-  * in client during TLS handshake between tje client and a server.
+  * in client during TLS handshake between the client and a server.
   */
 
     tcp_ready ready;
@@ -29830,7 +29830,7 @@ static void test_wolfSSL_Tls12_Key_Logging_test(void)
 
     AssertNotNull(fp);
 
-    while(XFGETS( buff, 300,fp) != NULL ) {
+    while(XFGETS( buff, (int)sizeof(buff),fp) != NULL ) {
         if(0 == strncmp(buff,"CLIENT_RANDOM ",
                     sizeof("CLIENT_RANDOM ")-1)) {
             found = 1;
@@ -29838,7 +29838,7 @@ static void test_wolfSSL_Tls12_Key_Logging_test(void)
         }
     }
     XFCLOSE(fp);
-    /* a log starting with "CLIENT_RANODOM " should exit in the file */
+    /* a log starting with "CLIENT_RANDOM " should exit in the file */
     AssertNotNull( found );
     printf(resultFmt, passed);
 
@@ -29848,7 +29848,7 @@ static void test_wolfSSL_Tls13_Key_Logging_test(void)
 {
  #if defined(OPENSSL_EXTRA) && defined(HAVE_SECRET_CALLBACK)
  /* This test is intended for checking whether keylog callback is called
-  * in client during TLS handshake between tje client and a server.
+  * in client during TLS handshake between the client and a server.
   */
 
     tcp_ready ready;
@@ -29932,20 +29932,24 @@ static void test_wolfSSL_Tls13_Key_Logging_test(void)
 
     AssertNotNull(fp);
 
-    while(XFGETS( buff, 300,fp) != NULL ) {
-        if(0 == strncmp(buff,"CLIENT_HANDSHAKE_TRAFFIC_SECRET ",sizeof("CLIENT_HANDSHAKE_TRAFFIC_SECRET ")-1)) {
+    while(XFGETS( buff, (int)sizeof(buff),fp) != NULL ) {
+        if(0 == strncmp(buff,"CLIENT_HANDSHAKE_TRAFFIC_SECRET ",
+                    sizeof("CLIENT_HANDSHAKE_TRAFFIC_SECRET ")-1)) {
             found[0] = 1;
             continue;
         }
-        else if(0 == strncmp(buff,"SERVER_HANDSHAKE_TRAFFIC_SECRET ",sizeof("SERVER_HANDSHAKE_TRAFFIC_SECRET ")-1)) {
+        else if(0 == strncmp(buff,"SERVER_HANDSHAKE_TRAFFIC_SECRET ",
+                    sizeof("SERVER_HANDSHAKE_TRAFFIC_SECRET ")-1)) {
             found[1] = 1;
             continue;
         }
-        else if(0 == strncmp(buff,"CLIENT_TRAFFIC_SECRET_0 ",sizeof("CLIENT_TRAFFIC_SECRET_0 ")-1)) {
+        else if(0 == strncmp(buff,"CLIENT_TRAFFIC_SECRET_0 ",
+                    sizeof("CLIENT_TRAFFIC_SECRET_0 ")-1)) {
             found[2] = 1;
             continue;
         }
-        else if(0 == strncmp(buff,"SERVER_TRAFFIC_SECRET_0 ",sizeof("SERVER_TRAFFIC_SECRET_0 ")-1)) {
+        else if(0 == strncmp(buff,"SERVER_TRAFFIC_SECRET_0 ",
+                    sizeof("SERVER_TRAFFIC_SECRET_0 ")-1)) {
             found[3] = 1;
             continue;
         }

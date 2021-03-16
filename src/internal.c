@@ -232,7 +232,7 @@ static int SSL_hmac(WOLFSSL* ssl, byte* digest, const byte* in, word32 sz,
 
     /* Convert input byte array to Hex string then add a null-terminator
      *
-     * The buffer for hex must be equal or grater than (bin size * 2 + 1).
+     * The buffer for hex must be equal or greater than (bin size * 2 + 1).
      *
      */
     static void ToHexString(const byte* bin, byte* hex, int BinSz)
