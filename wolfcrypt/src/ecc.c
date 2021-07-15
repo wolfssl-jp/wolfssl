@@ -2483,8 +2483,10 @@ int wc_ecc_mulmod_ex(mp_int* k, ecc_point *G, ecc_point *R,
 #else
    #define M_POINTS 5
 #endif
+
    ecc_point     *tG, *M[M_POINTS];
    int           i, err;
+
 #ifdef WOLFSSL_SMALL_STACK_CACHE
    ecc_key       key;
 #endif
@@ -2803,10 +2805,12 @@ int wc_ecc_mulmod_ex(mp_int* k, ecc_point *G, ecc_point *R,
 
 #ifdef WC_NO_CACHE_RESISTANT
            if (mode == 0) {
+
                /* timing resistant - dummy operations */
                if (err == MP_OKAY)
                    err = ecc_projective_add_point(M[1], M[2], M[2], a, modulus,
                                                   mp);
+
                if (err == MP_OKAY)
                    err = ecc_projective_dbl_point(M[2], M[3], a, modulus, mp);
             }
@@ -2848,6 +2852,7 @@ int wc_ecc_mulmod_ex(mp_int* k, ecc_point *G, ecc_point *R,
 
            if (err == MP_OKAY)
                err = ecc_projective_dbl_point(M[2], M[2], a, modulus, mp);
+
            if (err == MP_OKAY)
                err = mp_cond_copy(M[2]->x, i ^ 1, M[0]->x);
            if (err == MP_OKAY)
@@ -2877,9 +2882,7 @@ int wc_ecc_mulmod_ex(mp_int* k, ecc_point *G, ecc_point *R,
 
            if (err != MP_OKAY)
                break;
-
            mode |= i;
-
        } /* end for */
    }
 
@@ -2929,11 +2932,6 @@ exit:
 #ifndef WOLFSSL_SP_NO_256
     if (mp_count_bits(modulus) == 256) {
         return sp_ecc_mulmod_256(k, G, R, map, heap);
-    }
-#endif
-#ifdef WOLFSSL_SP_384
-    if (mp_count_bits(modulus) == 384) {
-        return sp_ecc_mulmod_384(k, G, R, map, heap);
     }
 #endif
     return ECC_BAD_ARG_E;
