@@ -545,11 +545,12 @@ int wc_ecc_point_is_at_infinity(ecc_point *p);
 
 #ifndef WOLFSSL_ATECC508A
 WOLFSSL_API
-int wc_ecc_mulmod(mp_int* k, ecc_point *G, ecc_point *R,
-                  mp_int* a, mp_int* modulus, int map);
+WOLFSSL_API
+int wc_ecc_mulmod(const mp_int *k, ecc_point *G, ecc_point *R,
+                  mp_int *a, mp_int *modulus, int map);
 WOLFSSL_LOCAL
-int wc_ecc_mulmod_ex(mp_int* k, ecc_point *G, ecc_point *R,
-                  mp_int* a, mp_int* modulus, int map, void* heap);
+int wc_ecc_mulmod_ex(const mp_int *k, ecc_point *G, ecc_point *R,
+                     mp_int *a, mp_int *modulus, int map, void *heap);
 #endif /* !WOLFSSL_ATECC508A */
 
 
@@ -709,6 +710,15 @@ WOLFSSL_API int wc_ecc_curve_cache_init(void);
 WOLFSSL_API void wc_ecc_curve_cache_free(void);
 #endif
 
+WOLFSSL_API
+int wc_ecc_gen_k(WC_RNG *rng, int size, mp_int *k, mp_int *order);
+
+WOLFSSL_LOCAL
+int ecc_projective_add_point_safe(ecc_point *A, ecc_point *B, ecc_point *R,
+                                  mp_int *a, mp_int *modulus, mp_digit mp, int *infinity);
+WOLFSSL_LOCAL
+int ecc_projective_dbl_point_safe(ecc_point *P, ecc_point *R, mp_int *a,
+                                  mp_int *modulus, mp_digit mp);
 
 #ifdef __cplusplus
     }    /* extern "C" */
