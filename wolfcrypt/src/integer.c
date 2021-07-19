@@ -368,7 +368,7 @@ int mp_init_copy (mp_int * a, mp_int * b)
 
 
 /* copy, b = a */
-int mp_copy (mp_int * a, mp_int * b)
+int mp_copy (const mp_int * a, mp_int * b)
 {
   int     res, n;
 
@@ -564,6 +564,13 @@ void mp_exch (mp_int * a, mp_int * b)
   *b = t;
 }
 
+int mp_cond_swap_ct(mp_int *a, mp_int *b, int c, int m)
+{
+    (void)c;
+    if (m == 1)
+        mp_exch(a, b);
+    return MP_OKAY;
+}
 
 /* shift right a certain number of bits */
 void mp_rshb (mp_int *c, int x)

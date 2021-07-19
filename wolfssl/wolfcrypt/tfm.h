@@ -432,7 +432,7 @@ int fp_is_bit_set(fp_int *a, fp_digit b);
 int fp_set_bit (fp_int * a, fp_digit b);
 
 /* copy from a to b */
-void fp_copy(fp_int *a, fp_int *b);
+void fp_copy(const fp_int *a, fp_int *b);
 void fp_init_copy(fp_int *a, fp_int *b);
 
 /* clamp digits */
@@ -749,7 +749,7 @@ MP_API int  mp_to_unsigned_bin (mp_int * a, unsigned char *b);
 MP_API int  mp_to_unsigned_bin_len(mp_int * a, unsigned char *b, int c);
 
 MP_API int  mp_sub_d(fp_int *a, fp_digit b, fp_int *c);
-MP_API int  mp_copy(fp_int* a, fp_int* b);
+MP_API int  mp_copy(const fp_int* a, fp_int* b);
 MP_API int  mp_isodd(mp_int* a);
 MP_API int  mp_iszero(mp_int* a);
 MP_API int  mp_count_bits(mp_int *a);
@@ -801,6 +801,7 @@ MP_API int  mp_lcm(fp_int *a, fp_int *b, fp_int *c);
 MP_API int  mp_rand_prime(mp_int* N, int len, WC_RNG* rng, void* heap);
 MP_API int  mp_exch(mp_int *a, mp_int *b);
 #endif /* WOLFSSL_KEY_GEN */
+MP_API int mp_cond_swap_ct(mp_int *a, mp_int *b, int c, int m);
 
 MP_API int  mp_cnt_lsb(fp_int *a);
 MP_API int  mp_div_2d(fp_int *a, int b, fp_int *c, fp_int *d);
