@@ -143,8 +143,10 @@ ECC Curve Sizes:
 #endif
 
 /* forward declarations */
+#if !defined(WOLFSSL_SP_MATH)
 static int  wc_ecc_new_point_ex(ecc_point** point, void* heap);
 static void wc_ecc_del_point_ex(ecc_point* p, void* heap);
+#endif
 
 /* internal ECC states */
 enum {
@@ -3097,6 +3099,7 @@ int wc_ecc_mulmod(const mp_int *k, ecc_point *G, ecc_point *R, mp_int *a,
  * use a heap hint when creating new ecc_point
  * return an allocated point on success or NULL on failure
 */
+#if !defined(WOLFSSL_SP_MATH)
 static int wc_ecc_new_point_ex(ecc_point **point, void *heap)
 {
     int err = MP_OKAY;
@@ -3142,7 +3145,7 @@ static int wc_ecc_new_point_ex(ecc_point **point, void *heap)
     (void)heap;
     return err;
 }
-
+#endif
 /**
  * use a heap hint when creating new ecc_point
  * return an allocated point on success or NULL on failure
@@ -3189,6 +3192,7 @@ ecc_point* wc_ecc_new_point(void)
 /** Free an ECC point from memory
   p   The point to free
 */
+#if !defined(WOLFSSL_SP_MATH)
 static void wc_ecc_del_point_ex(ecc_point* p, void* heap)
 {
    if (p != NULL) {
@@ -3201,6 +3205,7 @@ static void wc_ecc_del_point_ex(ecc_point* p, void* heap)
    }
    (void)heap;
 }
+#endif
 
 void wc_ecc_del_point_h(ecc_point* p, void* heap)
 {
