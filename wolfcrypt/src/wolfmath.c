@@ -71,7 +71,7 @@
 #endif
 
 
-int get_digit_count(mp_int* a)
+int get_digit_count(const mp_int* a)
 {
     if (a == NULL)
         return 0;
@@ -79,7 +79,7 @@ int get_digit_count(mp_int* a)
     return a->used;
 }
 
-mp_digit get_digit(mp_int* a, int n)
+mp_digit get_digit(const mp_int* a, int n)
 {
     if (a == NULL)
         return 0;
