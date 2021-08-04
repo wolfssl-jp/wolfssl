@@ -1314,7 +1314,8 @@ enum Misc {
     MAX_SYM_KEY_SIZE    = WC_MAX_SYM_KEY_SIZE,
 #endif
 
-#ifdef HAVE_SELFTEST
+#if defined(HAVE_SELFTEST) && \
+    (!defined(HAVE_SELFTEST_VERSION) || (HAVE_SELFTEST_VERSION < 2))
     #define WOLFSSL_AES_KEY_SIZE_ENUM
     AES_IV_SIZE         = 16,
     AES_128_KEY_SIZE    = 16,

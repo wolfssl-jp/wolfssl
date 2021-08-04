@@ -141,7 +141,8 @@ extern int wc_InitRsaHw(RsaKey* key);
 #define ERROR_OUT(err, eLabel) { ret = (err); goto eLabel; }
 #define XSTR_SIZEOF(x) (sizeof(x) - 1) /* -1 to not count the null char */
 
-#ifdef HAVE_SELFTEST
+#if defined(HAVE_SELFTEST) && \
+    (!defined(HAVE_SELFTEST_VERSION) || (HAVE_SELFTEST_VERSION < 2))
     #ifndef WOLFSSL_AES_KEY_SIZE_ENUM
     enum Asn_Misc {
         AES_IV_SIZE         = 16,
