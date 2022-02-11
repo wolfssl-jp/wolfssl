@@ -28,6 +28,8 @@ EXTRA_DIST += \
 	     certs/client-ecc-cert.pem \
 	     certs/client-ca.pem \
 	     certs/dh2048.pem \
+         certs/ntru-cert.pem \
+         certs/ntru-key.raw \
 	     certs/server-cert.pem \
 	     certs/server-ecc.pem \
 	     certs/server-ecc-self.pem \
