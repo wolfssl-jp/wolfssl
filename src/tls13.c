@@ -514,7 +514,7 @@ static int DeriveEarlyTrafficSecret(WOLFSSL* ssl, byte* key)
     return ret;
 }
 
-#ifdef HAVE_KEYING_MATERIAL
+#ifdef HAVE_KEYING_MATERIAL_EARLYDATA
 /* The length of the early exporter label. */
 #define EARLY_EXPORTER_LABEL_SZ     12
 /* The early exporter label. */
@@ -539,7 +539,7 @@ static int DeriveEarlyExporterSecret(WOLFSSL* ssl, byte* key)
                     ssl->specs.mac_algorithm, 1);
 #ifdef HAVE_SECRET_CALLBACK
     if (ret == 0 && ssl->tls13SecretCb != NULL) {
-        ret = ssl->tls13SecretCb(ssl, EARLY_EXPORTER_SECRET, key
+        ret = ssl->tls13SecretCb(ssl, EARLY_EXPORTER_SECRET, key,
                                  ssl->specs.hash_size, ssl->tls13SecretCtx);
         if (ret != 0) {
             return TLS13_SECRET_CB_E;
