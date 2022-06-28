@@ -36439,7 +36439,9 @@ WOLFSSL_BIGNUM *wolfSSL_EC_POINT_point2bn(const WOLFSSL_EC_GROUP *group,
 }
 #endif /* !HAVE_FIPS || HAVE_FIPS_VERSION > 2 */
 
-#ifdef USE_ECC_B_PARAM
+#if defined(USE_ECC_B_PARAM) && \
+    (!defined(HAVE_FIPS) || (defined(HAVE_FIPS_VERSION) && \
+        (HAVE_FIPS_VERSION > 2)))
 int wolfSSL_EC_POINT_is_on_curve(const WOLFSSL_EC_GROUP *group,
                                  const WOLFSSL_EC_POINT *point,
                                  WOLFSSL_BN_CTX *ctx)

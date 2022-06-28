@@ -21569,11 +21569,14 @@ static int ecc_point_test(void)
                               0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                               0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                               0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+#if !defined(HAVE_FIPS) && !defined(HAVE_SELFTEST) || \
+    (defined(HAVE_FIPS_VERSION) && (HAVE_FIPS_VERSION > 2))
     byte       derComp1[] = { 0x03, /* = Compressed, y odd */
                               0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                               0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                               0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                               0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+#endif
 #endif
     byte       altDer[] = { 0x04, /* = Uncompressed */
                             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -21747,7 +21750,6 @@ static int ecc_point_test(void)
         ret = -10027;
         goto done;
     }
-#endif
 
     ret = wc_ecc_cmp_point(point3, point4);
     if (ret != MP_EQ) {
@@ -21760,6 +21762,7 @@ static int ecc_point_test(void)
         ret = -10029;
         goto done;
     }
+#endif
 
 #if !defined(HAVE_FIPS) && !defined(HAVE_SELFTEST) || \
     (defined(HAVE_FIPS_VERSION) && (HAVE_FIPS_VERSION > 2))
@@ -21768,13 +21771,13 @@ static int ecc_point_test(void)
         ret = -10030;
         goto done;
     }
-#endif
 
     ret = wc_ecc_cmp_point(point3, point4);
     if (ret != MP_EQ) {
         ret = -10031;
         goto done;
     }
+#endif
 #endif
 
 done:
