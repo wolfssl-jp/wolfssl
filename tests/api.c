@@ -4368,10 +4368,13 @@ static void test_wolfSSL_PKCS12(void)
 #endif /* HAVE_FIPS */
 }
 
-
 #if (defined(OPENSSL_EXTRA) || defined(OPENSSL_EXTRA_X509_SMALL)) && \
-        !defined(NO_DES3) && !defined(NO_FILESYSTEM) && \
-        !defined(NO_ASN) && !defined(NO_PWDBASED) && !defined(NO_RSA)
+     defined(WOLFSSL_ENCRYPTED_KEYS) && !defined(NO_DES3) && \
+    !defined(NO_PWDBASED) && !defined(NO_RSA)
+    #define TEST_PKCS8_ENC
+#endif
+
+#ifdef TEST_PKCS8_ENC
 /* for PKCS8 test case */
 static WC_INLINE int PKCS8TestCallBack(char* passwd, int sz, int rw, void* userdata)
 {
@@ -4410,10 +4413,7 @@ static void test_wolfSSL_PKCS8(void)
     ecc_key key;
     word32 x = 0;
 #endif
-#if (defined(OPENSSL_EXTRA) || defined(OPENSSL_EXTRA_X509_SMALL)) && \
-     defined(WOLFSSL_ENCRYPTED_KEYS) && !defined(NO_DES3) && \
-    !defined(NO_PWDBASED) && !defined(NO_RSA)
-    #define TEST_PKCS8_ENC
+#ifdef TEST_PKCS8_ENC
     const char serverKeyPkcs8EncFile[] = "./certs/server-keyPkcs8Enc.pem";
     int flag = 1;
     WOLFSSL_CTX* ctx;
@@ -4553,7 +4553,7 @@ static void test_wolfSSL_TBS(void)
     AssertNull(tbs = wolfSSL_X509_get_tbs(NULL, &tbsSz));
     AssertNull(tbs = wolfSSL_X509_get_tbs(x509, NULL));
     AssertNotNull(tbs = wolfSSL_X509_get_tbs(x509, &tbsSz));
-    AssertIntEQ(tbsSz, 918);
+    AssertIntEQ(tbsSz, 1003);
 
     wolfSSL_FreeX509(x509);
 
@@ -18207,7 +18207,7 @@ static void test_wolfSSL_ASN1_TIME_print(void)
                 sizeof_client_cert_der_2048, WOLFSSL_FILETYPE_ASN1));
     AssertIntEQ(ASN1_TIME_print(bio, X509_get_notBefore(x509)), 1);
     AssertIntEQ(BIO_read(bio, buf, sizeof(buf)), 24);
-    AssertIntEQ(XMEMCMP(buf, "Apr 13 15:23:09 2018 GMT", sizeof(buf) - 1), 0);
+    AssertIntEQ(XMEMCMP(buf, "Feb 15 12:50:24 2022 GMT", sizeof(buf) - 1), 0);
 
     /* create a bad time and test results */
     AssertNotNull(t = X509_get_notAfter(x509));
@@ -20173,7 +20173,7 @@ static void test_wolfSSL_PEM_read_bio(void)
 {
     #if defined(OPENSSL_EXTRA) && !defined(NO_CERTS) && \
        !defined(NO_FILESYSTEM) && !defined(NO_RSA)
-    byte buff[5300];
+    byte buff[6000];
     XFILE f;
     int  bytes;
     X509* x509;
@@ -20186,7 +20186,7 @@ static void test_wolfSSL_PEM_read_bio(void)
     AssertTrue((f != XBADFILE));
     bytes = (int)XFREAD(buff, 1, sizeof(buff), f);
     XFCLOSE(f);
-
+    printf("bytes=%dn", bytes);
     AssertNull(x509 = PEM_read_bio_X509_AUX(bio, NULL, NULL, NULL));
     AssertNotNull(bio = BIO_new_mem_buf((void*)buff, bytes));
     AssertNotNull(x509 = PEM_read_bio_X509_AUX(bio, NULL, NULL, NULL));
@@ -21602,10 +21602,10 @@ static void test_wolfSSL_sk_GENERAL_NAME(void)
     AssertNotNull(x509 = d2i_X509(NULL, &bufPt, bytes));
 
     /* current cert has no alt names */
-    AssertNull(sk = (WOLF_STACK_OF(ASN1_OBJECT)*)X509_get_ext_d2i(x509,
+    AssertNotNull(sk = (WOLF_STACK_OF(ASN1_OBJECT)*)X509_get_ext_d2i(x509,
                 NID_subject_alt_name, NULL, NULL));
 
-    AssertIntEQ(sk_GENERAL_NAME_num(sk), -1);
+    AssertIntEQ(sk_GENERAL_NAME_num(sk), 1);
 #if 0
     for (i = 0; i < sk_GENERAL_NAME_num(sk); i++) {
         GENERAL_NAME* gn = sk_GENERAL_NAME_value(sk, i);
