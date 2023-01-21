@@ -5004,6 +5004,7 @@ int InitSSL(WOLFSSL* ssl, WOLFSSL_CTX* ctx, int writeDup)
     ssl->options.haveEMS = ctx->haveEMS;
 #endif
     ssl->options.useClientOrder = ctx->useClientOrder;
+    ssl->options.mutualAuth = ctx->mutualAuth;
 
 #ifdef WOLFSSL_TLS13
     #ifdef HAVE_SESSION_TICKET
@@ -8918,6 +8919,45 @@ typedef struct ProcPeerCertArgs {
     word16 haveTrustPeer:1; /* was cert verified by loaded trusted peer cert */
 #endif
 } ProcPeerCertArgs;
+
+#if !defined(NO_WOLFSSL_CLIENT) || !defined(WOLFSSL_NO_CLIENT_AUTH)
+void DoCertFatalAlert(WOLFSSL* ssl, int ret)
+{
+    int alertWhy;
+    if (ssl == NULL || ret == 0) {
+        return;
+    }
+    WOLFSSL_ERROR(ret);
+
+    /* Determine alert reason */
+    alertWhy = bad_certificate;
+    if (ret == ASN_AFTER_DATE_E || ret == ASN_BEFORE_DATE_E) {
+        alertWhy = certificate_expired;
+    } else if (ret == ASN_NO_SIGNER_E) {
+        alertWhy = unknown_ca;
+    }
+#if (defined(OPENSSL_ALL) || defined(WOLFSSL_APACHE_HTTPD))
+    else if (ret == CRL_CERT_REVOKED) {
+        alertWhy = certificate_revoked;
+    }
+#endif
+    else if (ret == NO_PEER_CERT) {
+#ifdef WOLFSSL_TLS13
+        if (ssl->options.tls1_3) {
+            alertWhy = certificate_required;
+        }
+        else
+#endif
+        {
+            alertWhy = handshake_failure;
+        }
+    }
+
+    /* send fatal alert and mark connection closed */
+    SendAlert(ssl, alert_fatal, alertWhy); /* try to send */
+    ssl->options.isClosed = 1;
+}
+#endif
 
 /* WOLFSSL_ALWAYS_VERIFY_CB: Use verify callback for success or failure cases */
 /* WOLFSSL_VERIFY_CB_ALL_CERTS: Issue callback for all intermediate certificates */
@@ -25538,7 +25578,8 @@ static int DoSessionTicket(WOLFSSL* ssl, const byte* input, word32* inOutIdx,
                 }
 
             #ifndef NO_CERTS
-                if (ssl->options.verifyPeer && ssl->options.failNoCert) {
+                if (ssl->options.verifyPeer &&
+                         (ssl->options.mutualAuth || ssl->options.failNoCert)) {
                     if (!ssl->options.havePeerCert) {
                         WOLFSSL_MSG("client didn't present peer cert");
                         ERROR_OUT(NO_PEER_CERT, exit_dcke);
@@ -25549,7 +25590,7 @@ static int DoSessionTicket(WOLFSSL* ssl, const byte* input, word32* inOutIdx,
                     if (!ssl->options.havePeerCert &&
                                              !ssl->options.usingPSK_cipher) {
                         WOLFSSL_MSG("client didn't present peer cert");
-                        return NO_PEER_CERT;
+                        ERROR_OUT(NO_PEER_CERT, exit_dcke);
                     }
                 }
             #endif /* !NO_CERTS */
