@@ -19,7 +19,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
  */
 
-
 /*
  * BUILD_GCM
  *    Enables AES-GCM ciphersuites.
@@ -72,6 +71,8 @@
  *    Allow a NewSessionTicket message to be sent by server before Client's
  *    Finished message.
  *    See TLS v1.3 specification, Section 4.6.1, Paragraph 4 (Note).
+ * WOLFSSL_NO_CLIENT_CERT_ERROR
+ *    Requires client to set a client certificate
  */
 
 #ifdef HAVE_CONFIG_H
@@ -6049,6 +6050,23 @@ static int DoTls13Finished(WOLFSSL* ssl, const byte* input, word32* inOutIdx,
 
     WOLFSSL_START(WC_FUNC_FINISHED_DO);
     WOLFSSL_ENTER("DoTls13Finished");
+
+    #if !defined(NO_CERTS) && !defined(WOLFSSL_NO_CLIENT_AUTH)
+    /* verify the client sent certificate if required */
+    if (ssl->options.side == WOLFSSL_SERVER_END && !ssl->options.resuming &&
+            (ssl->options.mutualAuth || ssl->options.failNoCert)) {
+        if (
+        #ifdef WOLFSSL_POST_HANDSHAKE_AUTH
+            !ssl->options.verifyPostHandshake &&
+        #endif
+            (!ssl->options.havePeerCert || !ssl->options.havePeerVerify)) {
+            ret = NO_PEER_CERT; /* NO_PEER_VERIFY */
+            WOLFSSL_MSG("TLS v1.3 client did not present peer cert");
+            DoCertFatalAlert(ssl, ret);
+            return ret;
+        }
+    }
+    #endif
 
     /* check against totalSz */
     if (*inOutIdx + size + ssl->keys.padSz > totalSz)
