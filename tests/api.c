@@ -4368,6 +4368,12 @@ static void test_wolfSSL_PKCS12(void)
 #endif /* HAVE_FIPS */
 }
 
+#if (defined(OPENSSL_EXTRA) || defined(OPENSSL_EXTRA_X509_SMALL)) && \
+     defined(WOLFSSL_ENCRYPTED_KEYS) && !defined(NO_DES3) && \
+    !defined(NO_PWDBASED) && !defined(NO_RSA)
+    #define TEST_PKCS8_ENC
+#endif
+
 #ifdef TEST_PKCS8_ENC
 /* for PKCS8 test case */
 static WC_INLINE int PKCS8TestCallBack(char* passwd, int sz, int rw, void* userdata)
@@ -4407,10 +4413,7 @@ static void test_wolfSSL_PKCS8(void)
     ecc_key key;
     word32 x = 0;
 #endif
-#if (defined(OPENSSL_EXTRA) || defined(OPENSSL_EXTRA_X509_SMALL)) && \
-     defined(WOLFSSL_ENCRYPTED_KEYS) && !defined(NO_DES3) && \
-    !defined(NO_PWDBASED) && !defined(NO_RSA)
-    #define TEST_PKCS8_ENC
+#ifdef TEST_PKCS8_ENC
     const char serverKeyPkcs8EncFile[] = "./certs/server-keyPkcs8Enc.pem";
     int flag = 1;
     WOLFSSL_CTX* ctx;
