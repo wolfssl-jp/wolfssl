@@ -2925,7 +2925,7 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
 
     if (sendGET) {
         printf("SSL connect ok, sending GET...\n");
-        msgSz = 28;
+        msgSz = 29;
         strncpy(msg, "GET /index.html HTTP/1.0\r\n\r\n", msgSz);
         msg[msgSz] = '\0';
 
