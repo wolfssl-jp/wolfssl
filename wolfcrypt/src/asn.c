@@ -8345,25 +8345,36 @@ int ParseCertRelative(DecodedCert* cert, int type, int verify, void* cm)
     #ifndef NO_SKID
         if (cert->extSubjKeyIdSet == 0 && cert->publicKey != NULL &&
                                                         cert->pubKeySize > 0) {
-            ret = CalcHashId(cert->publicKey, cert->pubKeySize,
-                                                            cert->extSubjKeyId);
+            ret = CalcHashId(cert->publicKey, cert->pubKeySize, cert->extSubjKeyId);
             if (ret != 0)
                 return ret;
         }
     #endif /* !NO_SKID */
 
-        if (verify != NO_VERIFY && type != CA_TYPE && type != TRUSTED_PEER_TYPE) {
+        if (!cert->selfSigned || (verify != NO_VERIFY && type != CA_TYPE &&
+                                                    type != TRUSTED_PEER_TYPE)) {
             cert->ca = NULL;
     #ifndef NO_SKID
-            if (cert->extAuthKeyIdSet)
+            if (cert->extAuthKeyIdSet) {
                 cert->ca = GetCA(cm, cert->extAuthKeyId);
-            if (cert->ca == NULL && cert->extSubjKeyIdSet \
-                                 && verify != VERIFY_OCSP) {
+            }
+            if (cert->ca == NULL && cert->extSubjKeyIdSet
+                                    && verify != VERIFY_OCSP) {
                 cert->ca = GetCA(cm, cert->extSubjKeyId);
             }
-            if (cert->ca == NULL)
+            if (cert->ca != NULL && XMEMCMP(cert->issuerHash,
+                                    cert->ca->subjectNameHash, KEYID_SIZE) != 0) {
+                cert->ca = NULL;
+            }
+            if (cert->ca == NULL) {
                 cert->ca = GetCAByName(cm, cert->issuerHash);
-
+                /* If AKID is available then this CA doesn't have the public
+                    * key required */
+                if (cert->ca && cert->extAuthKeyIdSet) {
+                    WOLFSSL_MSG("CA SKID doesn't match AKID");
+                    cert->ca = NULL;
+                }
+            }
             /* OCSP Only: alt lookup using subject and pub key w/o sig check */
         #ifdef WOLFSSL_NO_TRUSTED_CERTS_VERIFY
             if (cert->ca == NULL && verify == VERIFY_OCSP) {
@@ -8468,10 +8479,8 @@ int ParseCertRelative(DecodedCert* cert, int type, int verify, void* cm)
                 }
             }
         }
-        WOLFSSL_MSG("SUCCESS: Cert path length Check");
 
         #ifdef HAVE_OCSP
-        /* Need the CA's public key hash for OCSP */
         if (verify != NO_VERIFY && type != CA_TYPE &&
                                                 type != TRUSTED_PEER_TYPE) {
             if (cert->ca) {
@@ -8481,6 +8490,7 @@ int ParseCertRelative(DecodedCert* cert, int type, int verify, void* cm)
             }
         }
         #endif /* HAVE_OCSP */
+        WOLFSSL_MSG("SUCCESS: Cert path length Check");
     }
 
     if (verify != NO_VERIFY && type != CA_TYPE && type != TRUSTED_PEER_TYPE) {
