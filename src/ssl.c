@@ -4917,6 +4917,7 @@ int ProcessBuffer(WOLFSSL_CTX* ctx, const unsigned char* buff,
 {
     DerBuffer*    der = NULL;        /* holds DER or RAW (for NTRU) */
     int           ret = 0;
+    int           keyFormat = 0;
     int           eccKey = 0;
     int           ed25519Key = 0;
     int           rsaKey = 0;
@@ -4964,7 +4965,9 @@ int ProcessBuffer(WOLFSSL_CTX* ctx, const unsigned char* buff,
 
     if (format == WOLFSSL_FILETYPE_PEM) {
     #ifdef WOLFSSL_PEM_TO_DER
-        ret = PemToDer(buff, sz, type, &der, heap, info, &eccKey);
+        ret = PemToDer(buff, sz, type, &der, heap, info, &keyFormat);
+        if (keyFormat == ECDSAk)
+                eccKey = 1;
     #else
         ret = NOT_COMPILED_IN;
     #endif
