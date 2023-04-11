@@ -65,6 +65,8 @@
 #define OCSP_STAPLINGV2_MULTI 3
 #define OCSP_STAPLING_OPT_MAX OCSP_STAPLINGV2_MULTI
 
+static const char kHttpGetMsg[] = "GET /index.html HTTP/1.0\r\n\r\n";
+
 /* Note on using port 0: the client standalone example doesn't utilize the
  * port 0 port sharing; that is used by (1) the server in external control
  * test mode and (2) the testsuite which uses this code and sets up the correct
@@ -2925,13 +2927,11 @@ THREAD_RETURN WOLFSSL_THREAD client_test(void* args)
 
     if (sendGET) {
         printf("SSL connect ok, sending GET...\n");
-        msgSz = 28;
-        strncpy(msg, "GET /index.html HTTP/1.0\r\n\r\n", msgSz);
-        msg[msgSz] = '\0';
+        msgSz = (int)XSTRLEN(kHttpGetMsg);
+        XMEMCPY(msg, kHttpGetMsg, msgSz);
 
         resumeSz = msgSz;
-        strncpy(resumeMsg, "GET /index.html HTTP/1.0\r\n\r\n", resumeSz);
-        resumeMsg[resumeSz] = '\0';
+        XMEMCPY(resumeMsg, kHttpGetMsg, resumeSz);
     }
 
 /* allow some time for exporting the session */
