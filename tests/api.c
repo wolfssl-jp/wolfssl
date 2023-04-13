@@ -20293,7 +20293,6 @@ static void test_wolfSSL_PEM_read_bio(void)
     AssertTrue((f != XBADFILE));
     bytes = (int)XFREAD(buff, 1, sizeof(buff), f);
     XFCLOSE(f);
-    printf("bytes=%dn", bytes);
     AssertNull(x509 = PEM_read_bio_X509_AUX(bio, NULL, NULL, NULL));
     AssertNotNull(bio = BIO_new_mem_buf((void*)buff, bytes));
     AssertNotNull(x509 = PEM_read_bio_X509_AUX(bio, NULL, NULL, NULL));
