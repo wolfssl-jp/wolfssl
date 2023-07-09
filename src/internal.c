@@ -8977,7 +8977,8 @@ static int DoVerifyCallback(WOLFSSL* ssl, int ret, ProcPeerCertArgs* args)
         if (ret == ASN_AFTER_DATE_E ||
             ret == ASN_BEFORE_DATE_E) {
             alertWhy = certificate_expired;
-        } else if (ret == ASN_NO_SIGNER_E) {
+    } else if (ret == ASN_NO_SIGNER_E || ret == ASN_PATHLEN_INV_E ||
+            ret == ASN_PATHLEN_SIZE_E) {
             alertWhy = unknown_ca;
         }
     } else {
@@ -9144,6 +9145,7 @@ static int DoVerifyCallback(WOLFSSL* ssl, int ret, ProcPeerCertArgs* args)
             /* handle failure */
             SendAlert(ssl, alert_fatal, alertWhy); /* try to send */
             ssl->options.isClosed = 1;
+            args->lastErr = ret;
         }
 
         /* Report SSL error */
@@ -9671,7 +9673,7 @@ int ProcessPeerCerts(WOLFSSL* ssl, byte* input, word32* inOutIdx,
                     /* select last certificate */
                     args->certIdx = args->count - 1;
 
-                    ret = ProcessPeerCertParse(ssl, args, CERT_TYPE,
+                    ret = ProcessPeerCertParse(ssl, args, CHAIN_CERT_TYPE,
                         !ssl->options.verifyNone ? VERIFY : NO_VERIFY,
                         &subjectHash, &alreadySigner);
                 #ifdef WOLFSSL_ASYNC_CRYPT
@@ -9834,7 +9836,7 @@ int ProcessPeerCerts(WOLFSSL* ssl, byte* input, word32* inOutIdx,
                 /* select peer cert (first one) */
                 args->certIdx = 0;
 
-                ret = ProcessPeerCertParse(ssl, args, CERT_TYPE,
+                ret = ProcessPeerCertParse(ssl, args, CHAIN_CERT_TYPE,
                         !ssl->options.verifyNone ? VERIFY : NO_VERIFY,
                         &subjectHash, &alreadySigner);
             #ifdef WOLFSSL_ASYNC_CRYPT
