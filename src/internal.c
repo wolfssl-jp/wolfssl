@@ -9836,7 +9836,7 @@ int ProcessPeerCerts(WOLFSSL* ssl, byte* input, word32* inOutIdx,
                 /* select peer cert (first one) */
                 args->certIdx = 0;
 
-                ret = ProcessPeerCertParse(ssl, args, CHAIN_CERT_TYPE,
+                ret = ProcessPeerCertParse(ssl, args, CERT_TYPE,
                         !ssl->options.verifyNone ? VERIFY : NO_VERIFY,
                         &subjectHash, &alreadySigner);
             #ifdef WOLFSSL_ASYNC_CRYPT
