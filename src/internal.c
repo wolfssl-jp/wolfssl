@@ -15757,7 +15757,7 @@ int ProcessReply(WOLFSSL* ssl)
                             #endif /* WOLFSSL_DTLS_DROP_STATS */
                         }
                     #endif /* WOLFSSL_DTLS */
-                    #ifdef WOLFSSL_EXTRA_ALERTS
+                    #if defined(WOLFSSL_EXTRA_ALERTS) && !defined(WOLFSSL_NO_ETM_ALERT)
                         if (!ssl->options.dtls)
                             SendAlert(ssl, alert_fatal, bad_record_mac);
                     #endif
@@ -15808,7 +15808,7 @@ int ProcessReply(WOLFSSL* ssl)
 #endif
                                 ) {
                     WOLFSSL_MSG("Plaintext too long - Encrypt-Then-MAC");
-            #if defined(WOLFSSL_EXTRA_ALERTS)
+            #if defined(WOLFSSL_EXTRA_ALERTS) && !defined(WOLFSSL_NO_ETM_ALERT)
                     SendAlert(ssl, alert_fatal, record_overflow);
             #endif
                     return BUFFER_ERROR;
