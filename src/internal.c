@@ -9595,6 +9595,23 @@ int ProcessPeerCerts(WOLFSSL* ssl, byte* input, word32* inOutIdx,
             args->count = args->totalCerts;
             args->certIdx = 0; /* select peer cert (first one) */
 
+            if (args->count == 0) {
+                /* Empty certificate message. */
+                if ((ssl->options.side == WOLFSSL_SERVER_END) &&
+                    (ssl->options.mutualAuth || (ssl->options.failNoCert &&
+                                             IsAtLeastTLSv1_3(ssl->version)))) {
+                    WOLFSSL_MSG("No peer cert from Client");
+                    ret = NO_PEER_CERT;
+                    DoCertFatalAlert(ssl, ret);
+                }
+                else if ((ssl->options.side == WOLFSSL_CLIENT_END) &&
+                         IsAtLeastTLSv1_3(ssl->version)) {
+                    WOLFSSL_MSG("No peer cert from Server");
+                    ret = NO_PEER_CERT;
+                    SendAlert(ssl, alert_fatal, decode_error);
+                }
+            }
+
             args->dCertInit = 0;
         #ifndef WOLFSSL_SMALL_CERT_VERIFY
             args->dCert = (DecodedCert*)XMALLOC(sizeof(DecodedCert), ssl->heap,
