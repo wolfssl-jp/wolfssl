@@ -449,7 +449,7 @@ static int test_wolfCrypt_Init(void)
 /*----------------------------------------------------------------------------*
  | Platform dependent function test
  *----------------------------------------------------------------------------*/
- static int test_fileAccess()
+ static int test_fileAccess(void)
 {
 #if defined(WOLFSSL_TEST_PLATFORMDEPEND) && !defined(NO_FILESYSTEM)
     const char *fname[] = {
@@ -22822,7 +22822,7 @@ static void test_wolfSSL_DES_ncbc(void){
 #endif
 }
 
-static void test_wolfSSL_AES_cbc_encrypt()
+static void test_wolfSSL_AES_cbc_encrypt(void)
 {
 #if !defined(NO_AES) && defined(HAVE_AES_CBC) && defined(OPENSSL_EXTRA)
     AES_KEY aes;
@@ -23560,7 +23560,7 @@ static int check_result(unsigned char *data, int len)
 static int r_offset;
 static int w_offset;
 
-static void init_offset()
+static void init_offset(void)
 {
     r_offset = 0;
     w_offset = 0;
@@ -23614,8 +23614,7 @@ static int test_EVP_Cipher_extra(void)
 
     int *test_drive[] = {test_drive1, test_drive2, test_drive3, NULL};
     int test_drive_len[100];
-    int drive_len;
-
+   
     int ret = 0;
 	EVP_CIPHER_CTX *evp = NULL;
 	
@@ -23690,7 +23689,6 @@ static int test_EVP_Cipher_extra(void)
 	for (i = 0; test_drive[i]; i++) {
 
 		last_val = 0x0f;
-        drive_len = 0;
 
 		AssertIntNE((ret = EVP_CipherInit(evp, NULL, key, iv, 0)), 0);
 
@@ -23705,7 +23703,6 @@ static int test_EVP_Cipher_extra(void)
 			binary_dump(outb, outl);
 			AssertIntEQ((ret = check_result(outb, outl)), 0);
 			AssertFalse(outl > ((inl/16+1)*16) && outl > 16);
-            drive_len += outl;
         }
 
 		ret = EVP_CipherFinal(evp, outb, &outl);
@@ -23715,7 +23712,6 @@ static int test_EVP_Cipher_extra(void)
                  (((test_drive_len[i] % 16) == 0) && (ret == 1));
         AssertTrue(ret);
 
-        drive_len += outl;
     }
 
 	EVP_CIPHER_CTX_free(evp);
@@ -24863,7 +24859,7 @@ static void test_wolfSSL_PEM_read(void)
 #endif
 }
 
-static void test_wolfSSL_X509_NAME_ENTRY_get_object()
+static void test_wolfSSL_X509_NAME_ENTRY_get_object(void)
 {
 #if defined(OPENSSL_EXTRA) && !defined(NO_FILESYSTEM) && !defined(NO_RSA)
     X509 *x509 = NULL;
@@ -24889,7 +24885,7 @@ static void test_wolfSSL_X509_NAME_ENTRY_get_object()
 #endif
 }
 
-static void test_wolfSSL_i2c_ASN1_INTEGER()
+static void test_wolfSSL_i2c_ASN1_INTEGER(void)
 {
 #if defined(OPENSSL_EXTRA) && !defined(NO_ASN)
     ASN1_INTEGER *a;
@@ -25023,7 +25019,7 @@ static int test_ForceZero(void)
     return 0;
 }
 
-static void test_wolfSSL_X509_print()
+static void test_wolfSSL_X509_print(void)
 {
 #if defined(OPENSSL_EXTRA) && !defined(NO_FILESYSTEM) && \
    !defined(NO_RSA) && !defined(HAVE_FAST_RSA)
@@ -25043,7 +25039,7 @@ static void test_wolfSSL_X509_print()
 #endif
 }
 
-static void test_wolfSSL_RSA_verify()
+static void test_wolfSSL_RSA_verify(void)
 {
 #if defined(OPENSSL_EXTRA) && !defined(NO_RSA) && !defined(HAVE_FAST_RSA) && \
     !defined(NO_FILESYSTEM) && defined(HAVE_CRL)
@@ -25105,7 +25101,7 @@ static void test_wolfSSL_RSA_verify()
 #endif
 }
 
-static void test_stubs_are_stubs()
+static void test_stubs_are_stubs(void)
 {
 #if defined(OPENSSL_EXTRA) && !defined(NO_WOLFSSL_STUB)
     WOLFSSL_CTX* ctx = NULL;
@@ -25142,7 +25138,7 @@ static void test_stubs_are_stubs()
 #endif /* OPENSSL_EXTRA && !NO_WOLFSSL_STUB */
 }
 
-static void test_wolfSSL_CTX_LoadCRL()
+static void test_wolfSSL_CTX_LoadCRL(void)
 {
 #ifdef HAVE_CRL
     WOLFSSL_CTX* ctx = NULL;
