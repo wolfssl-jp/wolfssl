@@ -15781,7 +15781,7 @@ int ProcessReply(WOLFSSL* ssl)
                             #endif /* WOLFSSL_DTLS_DROP_STATS */
                         }
                     #endif /* WOLFSSL_DTLS */
-                    #if defined(WOLFSSL_EXTRA_ALERTS) && !defined(WOLFSSL_NO_ETM_ALERT)
+                    #if defined(WOLFSSL_EXTRA_ALERTS)
                         if (!ssl->options.dtls)
                             SendAlert(ssl, alert_fatal, bad_record_mac);
                     #endif
