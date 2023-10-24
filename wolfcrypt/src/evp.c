@@ -382,8 +382,8 @@ WOLFSSL_API int wolfSSL_EVP_CipherUpdate(WOLFSSL_EVP_CIPHER_CTX *ctx,
         /* process blocks */
         if (evpCipherBlock(ctx, out, in, blocks * ctx->block_size) == 0)
             return WOLFSSL_FAILURE;
-        PRINT_BUF(in, ctx->block_size * blocks);
-        PRINT_BUF(out, ctx->block_size * blocks);
+        PRINT_BUF(in, ctx->block_size*blocks);
+        PRINT_BUF(out,ctx->block_size*blocks);
         inl  -= ctx->block_size * blocks;
         in   += ctx->block_size * blocks;
         if (ctx->enc == 0) {
