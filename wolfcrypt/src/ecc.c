@@ -20,6 +20,7 @@
  */
 
 
+
 #ifdef HAVE_CONFIG_H
     #include <config.h>
 #endif
@@ -2484,11 +2485,6 @@ exit:
 #ifndef WOLFSSL_SP_NO_256
     if (mp_count_bits(modulus) == 256) {
         return sp_ecc_mulmod_256(k, G, R, map, heap);
-    }
-#endif
-#ifdef WOLFSSL_SP_384
-    if (mp_count_bits(modulus) == 384) {
-        return sp_ecc_mulmod_384(k, G, R, map, heap);
     }
 #endif
     return ECC_BAD_ARG_E;
@@ -8392,7 +8388,7 @@ static INLINE void IncrementX963KdfCounter(byte* inOutCtr)
 int wc_X963_KDF(enum wc_HashType type, const byte* secret, word32 secretSz,
                 const byte* sinfo, word32 sinfoSz, byte* out, word32 outSz)
 {
-    int ret;
+    int ret, i;
     int digestSz, copySz;
     int remaining = outSz;
     byte* outIdx;
@@ -8436,7 +8432,7 @@ int wc_X963_KDF(enum wc_HashType type, const byte* secret, word32 secretSz,
     outIdx = out;
     XMEMSET(counter, 0, sizeof(counter));
 
-    for (; remaining > 0;) {
+    for (i = 1; remaining > 0; i++) {
 
         IncrementX963KdfCounter(counter);
 

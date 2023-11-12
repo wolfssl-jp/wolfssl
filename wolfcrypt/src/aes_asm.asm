@@ -18,6 +18,8 @@
 ;  * along with this program; if not, write to the Free Software
 ;  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 ;  */
+
+
 ;
 ;
 ;  /* See Intel Advanced Encryption Standard (AES) Instructions Set White Paper
@@ -26,6 +28,23 @@
 ;
 ;   /* This file is in intel asm syntax, see .s for at&t syntax */
 ;
+
+
+fips_version = 0
+IFDEF HAVE_FIPS
+  fips_version = 1
+  IFDEF HAVE_FIPS_VERSION
+    fips_version = HAVE_FIPS_VERSION
+  ENDIF
+ENDIF
+
+IF fips_version GE 2
+  fipsAh SEGMENT ALIAS(".fipsA$h") 'CODE'
+ELSE
+  _text SEGMENT
+ENDIF
+
+
 ;	/*
 ;	AES_CBC_encrypt[const	,unsigned	char*in
 ;	unsigned	,char*out
@@ -34,7 +53,6 @@
 ;	const	,unsigned	char*KS
 ;	int	nr]
 ;	*/
-_text SEGMENT
 AES_CBC_encrypt PROC
 ;#	parameter	1:	rdi
 ;#	parameter	2:	rsi
