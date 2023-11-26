@@ -2734,7 +2734,7 @@ static int ecc_mulmod(const mp_int* k, ecc_point* P, ecc_point* Q,
         if (cnt > t) {
             cnt = t;
         }
-        err = mp_copy(k, kt);
+        err = mp_copy((struct fp_int*)k, kt);
     }
     if (err == MP_OKAY) {
         err = mp_grow(kt, modulus->used + 1);

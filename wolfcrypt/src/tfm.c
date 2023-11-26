@@ -3173,7 +3173,7 @@ int mp_div_2d(fp_int* a, int b, fp_int* c, fp_int* d)
     return MP_OKAY;
 }
 
-void fp_copy(const fp_int *a, fp_int *b)
+void fp_copy(fp_int *a, fp_int *b)
 {
     /* if source and destination are different */
     if (a != b) {
@@ -3213,7 +3213,7 @@ void fp_init_copy(fp_int *a, fp_int* b)
 }
 
 /* fast math wrappers */
-int mp_copy(const fp_int* a, fp_int* b)
+int mp_copy(fp_int* a, fp_int* b)
 {
     fp_copy(a, b);
     return MP_OKAY;

@@ -432,7 +432,7 @@ int fp_is_bit_set(fp_int *a, fp_digit b);
 int fp_set_bit (fp_int * a, fp_digit b);
 
 /* copy from a to b */
-void fp_copy(const fp_int *a, fp_int *b);
+void fp_copy(fp_int *a, fp_int *b);
 void fp_init_copy(fp_int *a, fp_int *b);
 
 /* clamp digits */
@@ -749,7 +749,7 @@ MP_API int  mp_to_unsigned_bin (mp_int * a, unsigned char *b);
 MP_API int  mp_to_unsigned_bin_len(mp_int * a, unsigned char *b, int c);
 
 MP_API int  mp_sub_d(fp_int *a, fp_digit b, fp_int *c);
-MP_API int  mp_copy(const fp_int* a, fp_int* b);
+MP_API int  mp_copy(fp_int* a, fp_int* b);
 MP_API int  mp_isodd(mp_int* a);
 MP_API int  mp_iszero(mp_int* a);
 MP_API int  mp_count_bits(mp_int *a);

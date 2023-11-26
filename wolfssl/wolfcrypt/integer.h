@@ -290,7 +290,7 @@ MP_API int  mp_exptmod (mp_int * G, mp_int * X, mp_int * P, mp_int * Y);
 MP_API int  mp_count_bits (mp_int * a);
 MP_API int  mp_leading_bit (mp_int * a);
 MP_API int  mp_init_copy (mp_int * a, mp_int * b);
-MP_API int  mp_copy (const mp_int * a, mp_int * b);
+MP_API int  mp_copy (mp_int * a, mp_int * b);
 MP_API int  mp_grow (mp_int * a, int size);
 MP_API int  mp_div_2d (mp_int * a, int b, mp_int * c, mp_int * d);
 MP_API void mp_zero (mp_int * a);

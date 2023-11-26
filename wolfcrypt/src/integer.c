@@ -368,7 +368,7 @@ int mp_init_copy (mp_int * a, mp_int * b)
 
 
 /* copy, b = a */
-int mp_copy (const mp_int * a, mp_int * b)
+int mp_copy (mp_int * a, mp_int * b)
 {
   int     res, n;
 
