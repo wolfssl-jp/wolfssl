@@ -8343,7 +8343,13 @@ int ParseCertRelative(DecodedCert* cert, int type, int verify, void* cm)
     #ifndef NO_SKID
         if (cert->extSubjKeyIdSet == 0 && cert->publicKey != NULL &&
                                                         cert->pubKeySize > 0) {
-            ret = CalcHashId(cert->publicKey, cert->pubKeySize, cert->extSubjKeyId);
+#ifdef NO_SHA
+            ret = wc_Sha256Hash(cert->publicKey, cert->pubKeySize,
+                                cert->extSubjKeyId);
+#else
+            ret = wc_ShaHash(cert->publicKey, cert->pubKeySize,
+                             cert->extSubjKeyId);
+#endif /* NO_SHA */
             if (ret != 0)
                 return ret;
         }
