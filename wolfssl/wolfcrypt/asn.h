@@ -19,6 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
  */
 
+
 /*!
     \file wolfssl/wolfcrypt/asn.h
 */
@@ -920,9 +921,7 @@ extern "C"
         word32 pubKeySize;
         word32 keyOID; /* key type */
         word16 keyUsage;
-        byte pathLength;
         byte maxPathLen;
-        byte pathLengthSet : 1;
         byte selfSigned : 1;
         const byte *publicKey;
         int nameLen;
