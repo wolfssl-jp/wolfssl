@@ -3082,11 +3082,11 @@ static int sp_2048_to_mp(sp_digit* a, mp_int* r)
             r->dp[j] |= a[i] << s;
             r->dp[j] &= (1l << DIGIT_BIT) - 1;
             s = DIGIT_BIT - s;
-            r->dp[++j] = (mp_digit)a[i] >> s;
+            r->dp[++j] = a[i] >> s;
             while (s + DIGIT_BIT <= 57) {
                 s += DIGIT_BIT;
                 r->dp[j] &= (1l << DIGIT_BIT) - 1;
-                r->dp[++j] = (mp_digit)a[i] >> s;
+                r->dp[++j] = a[i] >> s;
             }
             s = 57 - s;
         }
@@ -6685,11 +6685,11 @@ static int sp_3072_to_mp(sp_digit* a, mp_int* r)
             r->dp[j] |= a[i] << s;
             r->dp[j] &= (1l << DIGIT_BIT) - 1;
             s = DIGIT_BIT - s;
-            r->dp[++j] = (mp_digit)a[i] >> s;
+            r->dp[++j] = a[i] >> s;
             while (s + DIGIT_BIT <= 57) {
                 s += DIGIT_BIT;
                 r->dp[j] &= (1l << DIGIT_BIT) - 1;
-                r->dp[++j] = (mp_digit)a[i] >> s;
+                r->dp[++j] = a[i] >> s;
             }
             s = 57 - s;
         }
@@ -7413,11 +7413,11 @@ static int sp_256_to_mp(sp_digit* a, mp_int* r)
             r->dp[j] |= a[i] << s;
             r->dp[j] &= (1l << DIGIT_BIT) - 1;
             s = DIGIT_BIT - s;
-            r->dp[++j] = (mp_digit)a[i] >> s;
+            r->dp[++j] = a[i] >> s;
             while (s + DIGIT_BIT <= 52) {
                 s += DIGIT_BIT;
                 r->dp[j] &= (1l << DIGIT_BIT) - 1;
-                r->dp[++j] = (mp_digit)a[i] >> s;
+                r->dp[++j] = a[i] >> s;
             }
             s = 52 - s;
         }
@@ -11017,7 +11017,7 @@ static void sp_256_to_bin(sp_digit* r, byte* a)
  * MEMORY_E when memory allocation fails and MP_OKAY on success.
  */
 int sp_ecc_secret_gen_256(mp_int* priv, ecc_point* pub, byte* out,
-                          word32* outLen, void* heap)
+                          word32* outLen, void *heap)
 {
 #if !defined(WOLFSSL_SP_SMALL) && !defined(WOLFSSL_SMALL_STACK)
     sp_point p;
