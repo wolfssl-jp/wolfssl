@@ -9080,6 +9080,7 @@ static int test_wc_Arc4Process (void)
 #ifndef NO_RC4
     Arc4 enc, dec;
     const char* key = "\x01\x23\x45\x67\x89\xab\xcd\xef";
+    int keyLen = 8;
     const char* input = "\x01\x23\x45\x67\x89\xab\xcd\xef";
     byte cipher[8];
     byte plain[8];
@@ -9097,20 +9098,20 @@ static int test_wc_Arc4Process (void)
     printf(testingFmt, "wc_Arc4Process()");
 
     if (ret == 0) {
-        ret = wc_Arc4SetKey(&enc, (byte*)key, sizeof(key)/sizeof(char));
+        ret = wc_Arc4SetKey(&enc, (byte*)key, sizeof(key)/keyLen);
     }
     if (ret == 0) {
-        ret = wc_Arc4SetKey(&dec, (byte*)key, sizeof(key)/sizeof(char));
+        ret = wc_Arc4SetKey(&dec, (byte*)key, sizeof(key)/keyLen);
     }
     if (ret == 0) {
         ret = wc_Arc4Process(&enc, cipher, (byte*)input,
-                                    (word32)(sizeof(input)/sizeof(char)));
+                                    (word32)(sizeof(input)/keyLen));
     }
     if (ret == 0) {
         ret = wc_Arc4Process(&dec, plain, cipher,
-                                    (word32)(sizeof(input)/sizeof(char)));
+                                    (word32)(sizeof(input)/keyLen));
         if (ret != 0 || XMEMCMP(plain, input,
-                            (unsigned int)(sizeof(input)/sizeof(char)))) {
+                            (unsigned int)(sizeof(input)/keyLen))) {
             ret = WOLFSSL_FATAL_ERROR;
         } else {
             ret = 0;
@@ -9120,14 +9121,14 @@ static int test_wc_Arc4Process (void)
     /* Bad args. */
     if (ret == 0) {
         ret = wc_Arc4Process(NULL, plain, cipher,
-                                (word32)(sizeof(input)/sizeof(char)));
+                                (word32)(sizeof(input)/keyLen));
         if (ret == BAD_FUNC_ARG) {
             ret = wc_Arc4Process(&dec, NULL, cipher,
-                                (word32)(sizeof(input)/sizeof(char)));
+                                (word32)(sizeof(input)/keyLen));
         }
         if (ret == BAD_FUNC_ARG) {
             ret = wc_Arc4Process(&dec, plain, NULL,
-                                (word32)(sizeof(input)/sizeof(char)));
+                                (word32)(sizeof(input)/keyLen));
         }
         if (ret == BAD_FUNC_ARG) {
             ret = 0;
@@ -14090,7 +14091,7 @@ static void test_wolfSSL_certs(void)
 }
 
 
-static void test_wolfSSL_ASN1_TIME_print()
+static void test_wolfSSL_ASN1_TIME_print(void)
 {
     #if defined(OPENSSL_EXTRA) && !defined(NO_CERTS) && !defined(NO_RSA) \
         && (defined(WOLFSSL_MYSQL_COMPATIBLE) || defined(WOLFSSL_NGINX) || \
@@ -17699,7 +17700,7 @@ static void test_DhCallbacks(void)
 
 #ifdef HAVE_HASHDRBG
 
-static int test_wc_RNG_GenerateBlock()
+static int test_wc_RNG_GenerateBlock(void)
 {
     int i, ret;
     WC_RNG rng;
