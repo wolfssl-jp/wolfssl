@@ -4967,7 +4967,7 @@ int ProcessBuffer(WOLFSSL_CTX* ctx, const unsigned char* buff,
     #ifdef WOLFSSL_PEM_TO_DER
         ret = PemToDer(buff, sz, type, &der, heap, info, &keyFormat);
         if (keyFormat == ECDSAk)
-            eccKey = 1;
+                eccKey = 1;
     #else
         ret = NOT_COMPILED_IN;
     #endif

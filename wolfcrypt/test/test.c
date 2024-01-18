@@ -24238,7 +24238,7 @@ typedef struct pairs_t {
 
 
 /*
-n =p1p2p3, where pi = ki(p1−1)+1 with (k2,k3) = (173,293)
+n =p1p2p3, where pi = ki(p1?1)+1 with (k2,k3) = (173,293)
 p1 = 2^192 * 0x000000000000e24fd4f6d6363200bf2323ec46285cac1d3a
    + 2^0   * 0x0b2488b0c29d96c5e67f8bec15b54b189ae5636efe89b45b
 */
