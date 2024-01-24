@@ -19,6 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
  */
 
+
 /*
  * BUILD_GCM
  *    Enables AES-GCM ciphersuites.
@@ -63,9 +64,7 @@
  * WOLFSSL_TLS13_TICKET_BEFORE_FINISHED
  *    Allow a NewSessionTicket message to be sent by server before Client's
  *    Finished message.
- *    See TLS v1.3 specification, Section 4.6.1, Paragraph 4 (Note). 
- * WOLFSSL_NO_CLIENT_CERT_ERROR
- *    Requires client to set a client certificate
+ *    See TLS v1.3 specification, Section 4.6.1, Paragraph 4 (Note).
  */
 
 #ifdef HAVE_CONFIG_H
