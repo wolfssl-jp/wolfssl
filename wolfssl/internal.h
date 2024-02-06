@@ -1408,8 +1408,9 @@ enum Misc {
 #if defined(HAVE_EX_DATA) || defined(FORTRESS)
     MAX_EX_DATA        =   5,  /* allow for five items of ex_data */
 #endif
-
+#ifndef MAX_X509_SIZE
     MAX_X509_SIZE      = 2048, /* max static x509 buffer size */
+#endif
     CERT_MIN_SIZE      =  256, /* min PEM cert size with header/footer */
 
     MAX_NTRU_PUB_KEY_SZ = 1027, /* NTRU max for now */

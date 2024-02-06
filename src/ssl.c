@@ -15631,8 +15631,15 @@ WOLFSSL_X509* wolfSSL_X509_d2i(WOLFSSL_X509** x509, const byte* in, int len)
             return NULL;
 
         /* already went through them */
-        if (cert->altNamesNext == NULL)
+        if (cert->altNamesNext == NULL) {
+#ifdef WOLFSSL_MULTICIRCULATE_ALTNAMELIST
+        /* Reset altNames List to head
+         * so that caller can circulate the list again
+         */
+        cert->altNamesNext = cert->altNames;
+#endif
             return NULL;
+        }
 
         ret = cert->altNamesNext->name;
         cert->altNamesNext = cert->altNamesNext->next;
