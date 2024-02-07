@@ -1,6 +1,6 @@
 /* sha.h
  *
- * Copyright (C) 2006-2019 wolfSSL Inc.
+ * Copyright (C) 2006-2017 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -31,13 +31,7 @@
 
 #ifndef NO_SHA
 
-#if defined(HAVE_FIPS) && \
-    defined(HAVE_FIPS_VERSION) && (HAVE_FIPS_VERSION >= 2)
-    #include <wolfssl/wolfcrypt/fips.h>
-#endif /* HAVE_FIPS_VERSION >= 2 */
-
-#if defined(HAVE_FIPS) && \
-	(!defined(HAVE_FIPS_VERSION) || (HAVE_FIPS_VERSION < 2))
+#ifdef HAVE_FIPS
 #define wc_Sha             Sha
 #define WC_SHA             SHA
 #define WC_SHA_BLOCK_SIZE  SHA_BLOCK_SIZE
@@ -56,9 +50,7 @@
     extern "C" {
 #endif
 
-/* avoid redefinition of structs */
-#if !defined(HAVE_FIPS) || \
-    (defined(HAVE_FIPS_VERSION) && (HAVE_FIPS_VERSION >= 2))
+#ifndef HAVE_FIPS /* avoid redefining structs */
 
 #ifdef WOLFSSL_MICROCHIP_PIC32MZ
     #include <wolfssl/wolfcrypt/port/pic32/pic32mz-crypt.h>
@@ -69,16 +61,10 @@
 #ifdef WOLFSSL_ASYNC_CRYPT
     #include <wolfssl/wolfcrypt/async.h>
 #endif
-#ifdef WOLFSSL_ESP32WROOM32_CRYPT
-    #include <wolfssl/wolfcrypt/port/Espressif/esp32-crypt.h>
-#endif
-
-#if !defined(NO_OLD_SHA_NAMES)
-    #define SHA             WC_SHA
-#endif
 
 #ifndef NO_OLD_WC_NAMES
     #define Sha             wc_Sha
+    #define SHA             WC_SHA
     #define SHA_BLOCK_SIZE  WC_SHA_BLOCK_SIZE
     #define SHA_DIGEST_SIZE WC_SHA_DIGEST_SIZE
     #define SHA_PAD_SIZE    WC_SHA_PAD_SIZE
@@ -86,7 +72,7 @@
 
 /* in bytes */
 enum {
-    WC_SHA              =  WC_HASH_TYPE_SHA,
+    WC_SHA              =  1,    /* hash type unique */
     WC_SHA_BLOCK_SIZE   = 64,
     WC_SHA_DIGEST_SIZE  = 20,
     WC_SHA_PAD_SIZE     = 56
@@ -123,17 +109,6 @@ typedef struct wc_Sha {
     #ifdef WOLFSSL_ASYNC_CRYPT
         WC_ASYNC_DEV asyncDev;
     #endif /* WOLFSSL_ASYNC_CRYPT */
-    #ifdef WOLF_CRYPTO_CB
-        int    devId;
-        void*  devCtx; /* generic crypto callback context */
-    #endif
-#endif
-#if defined(WOLFSSL_ESP32WROOM32_CRYPT) && \
-   !defined(NO_WOLFSSL_ESP32WROOM32_CRYPT_HASH)
-    WC_ESP32SHA ctx;
-#endif
-#if defined(WOLFSSL_HASH_FLAGS) || defined(WOLF_CRYPTO_CB)
-    word32 flags; /* enum wc_HashFlags in hash.h */
 #endif
 } wc_Sha;
 
@@ -145,7 +120,6 @@ typedef struct wc_Sha {
 WOLFSSL_API int wc_InitSha(wc_Sha*);
 WOLFSSL_API int wc_InitSha_ex(wc_Sha* sha, void* heap, int devId);
 WOLFSSL_API int wc_ShaUpdate(wc_Sha*, const byte*, word32);
-WOLFSSL_API int wc_ShaFinalRaw(wc_Sha*, byte*);
 WOLFSSL_API int wc_ShaFinal(wc_Sha*, byte*);
 WOLFSSL_API void wc_ShaFree(wc_Sha*);
 
@@ -154,11 +128,6 @@ WOLFSSL_API int wc_ShaCopy(wc_Sha*, wc_Sha*);
 
 #ifdef WOLFSSL_PIC32MZ_HASH
 WOLFSSL_API void wc_ShaSizeSet(wc_Sha* sha, word32 len);
-#endif
-
-#if defined(WOLFSSL_HASH_FLAGS) || defined(WOLF_CRYPTO_CB)
-    WOLFSSL_LOCAL int wc_ShaSetFlags(wc_Sha* sha, word32 flags);
-    WOLFSSL_LOCAL int wc_ShaGetFlags(wc_Sha* sha, word32* flags);
 #endif
 
 #ifdef __cplusplus

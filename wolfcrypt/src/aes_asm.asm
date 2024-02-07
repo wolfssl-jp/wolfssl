@@ -1,23 +1,24 @@
 ; /* aes_asm.asm
 ;  *
-;  * Copyright (C) 2006-2019 wolfSSL Inc.
+;  * Copyright (C) 2006-2016 wolfSSL Inc.
 ;  *
-;  * This file is part of wolfSSL.
+;  * This file is part of wolfssl. (formerly known as CyaSSL)
 ;  *
 ;  * wolfSSL is free software; you can redistribute it and/or modify
-;  * it under the terms of the GNU General Public License as published by
-;  * the Free Software Foundation; either version 2 of the License, or
+;  * it under the term of the GNU General Public License as published by
+;  * the Free Software Foundation/either version 2 of the License, or
 ;  * (at your option) any later version.
 ;  *
 ;  * wolfSSL is distributed in the hope that it will be useful,
 ;  * but WITHOUT ANY WARRANTY; without even the implied warranty of
-;  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 ;  * GNU General Public License for more details.
 ;  *
 ;  * You should have received a copy of the GNU General Public License
 ;  * along with this program; if not, write to the Free Software
-;  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+;  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 ;  */
+
 
 ;
 ;
@@ -1518,12 +1519,5 @@ MAKE_RK256_b:
 	pxor	xmm3,xmm4
 	pxor	xmm3,xmm2
 	ret
-
-
-IF fips_version GE 2
-  fipsAh ENDS
-ELSE
-  _text ENDS
-ENDIF
 
 END
