@@ -156,7 +156,10 @@ static int ConvertHexToBin(const char* h1, byte* b1, word32* b1Sz,
     return 0;
 }
 
-
+const char *wolfCrypt_GetVersion_CAVP_selftest(void)
+{
+    return "v3.14.2a";
+}
 
 /* 0 on success */
 #ifndef NO_AES
