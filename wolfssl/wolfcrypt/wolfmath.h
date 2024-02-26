@@ -64,6 +64,8 @@
         int wc_bigint_to_mp(WC_BIGINT* src, mp_int* dst);
     #endif /* HAVE_WOLF_BIGINT */
 
+int mp_cond_copy(mp_int *a, int copy, mp_int *b);
+
 #endif /* __WOLFMATH_H__ */
 
 #endif /* MP_INT_DEFINED */

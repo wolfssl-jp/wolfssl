@@ -166,6 +166,8 @@ if BUILD_MEMORY
 src_libwolfssl_la_SOURCES += wolfcrypt/src/memory.c
 endif
 
+src_libwolfssl_la_SOURCES += wolfcrypt/src/selftest.c
+
 if BUILD_DH
 src_libwolfssl_la_SOURCES += wolfcrypt/src/dh.c
 endif
