@@ -460,6 +460,7 @@ typedef WOLFSSL_EVP_CIPHER_CTX EVP_CIPHER_CTX;
 #define EVP_idea_cbc     wolfSSL_EVP_idea_cbc
 #define EVP_enc_null     wolfSSL_EVP_enc_null
 
+#define EVP_MD_size             wolfSSL_EVP_MD_size
 #define EVP_MD_CTX_new          wolfSSL_EVP_MD_CTX_new
 #define EVP_MD_CTX_create       wolfSSL_EVP_MD_CTX_new
 #define EVP_MD_CTX_free         wolfSSL_EVP_MD_CTX_free

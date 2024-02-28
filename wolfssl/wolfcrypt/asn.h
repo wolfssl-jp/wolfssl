@@ -61,9 +61,9 @@
 enum {
     ISSUER  = 0,
     SUBJECT = 1,
-#ifndef EXTERNAL_SERIAL_SIZE
+
     EXTERNAL_SERIAL_SIZE = 32,
-#endif
+
     BEFORE  = 0,
     AFTER   = 1
 };
