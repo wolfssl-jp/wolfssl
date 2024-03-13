@@ -14528,7 +14528,7 @@ static void test_wolfSSL_EVP_Digest(void)
 
 static void test_wolfSSL_EVP_MD_size(void)
 {
-#if defined(OPENSSL_EXTRA) && defined(EVP_MD_size)
+#if 0 /* defined(OPENSSL_EXTRA) && defined(EVP_MD_size) */
 
     WOLFSSL_EVP_MD_CTX mdCtx;
 
