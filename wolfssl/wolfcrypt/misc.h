@@ -34,6 +34,8 @@
 
 
 #ifdef NO_INLINE
+
+#define WC_MISC_STATIC
 WOLFSSL_LOCAL
 word32 rotlFixed(word32, word32);
 WOLFSSL_LOCAL
@@ -43,7 +45,13 @@ WOLFSSL_LOCAL
 word32 ByteReverseWord32(word32);
 WOLFSSL_LOCAL
 void   ByteReverseWords(word32*, const word32*, word32);
-
+/* 3.14.2b update, new API */
+WOLFSSL_LOCAL
+void XorWordsOut(wolfssl_word** r, const wolfssl_word** a,
+        const wolfssl_word** b, word32 n);
+/* 3.14.2b update, new API */
+WOLFSSL_LOCAL
+void xorbufout(void* out, const void* buf, const void* mask, word32 count);
 WOLFSSL_LOCAL
 void XorWords(wolfssl_word*, const wolfssl_word*, word32);
 WOLFSSL_LOCAL
@@ -93,6 +101,7 @@ word32 btoi(byte b);
 
 #endif /* NO_INLINE */
 
+WOLFSSL_LOCAL signed char HexCharToByte(char ch);
 
 #ifdef __cplusplus
     }   /* extern "C" */

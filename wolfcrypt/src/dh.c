@@ -1221,4 +1221,587 @@ int wc_DhSetKey(DhKey* key, const byte* p, word32 pSz, const byte* g,
     return wc_DhSetKey_ex(key, p, pSz, g, gSz, NULL, 0);
 }
 
+/* 3.14.2a (2024) updates for ACVP testing */
+word32 wc_DhGetNamedKeyMinSize(int name)
+{
+    word32 size;
+
+    switch (name) {
+        #ifdef HAVE_FFDHE_2048
+        case WC_FFDHE_2048:
+            size = 29;
+            break;
+        #endif /* HAVE_FFDHE_2048 */
+        #ifdef HAVE_FFDHE_3072
+        case WC_FFDHE_3072:
+            size = 34;
+            break;
+        #endif /* HAVE_FFDHE_3072 */
+        #ifdef HAVE_FFDHE_4096
+        case WC_FFDHE_4096:
+            size = 39;
+            break;
+        #endif /* HAVE_FFDHE_4096 */
+        #ifdef HAVE_FFDHE_6144
+        case WC_FFDHE_6144:
+            size = 46;
+            break;
+        #endif /* HAVE_FFDHE_6144 */
+        #ifdef HAVE_FFDHE_8192
+        case WC_FFDHE_8192:
+            size = 52;
+            break;
+        #endif /* HAVE_FFDHE_8192 */
+        default:
+            size = 0;
+    }
+
+    return size;
+}
+
+int wc_DhGetNamedKeyParamSize(int name, word32* p, word32* g, word32* q)
+{
+    word32 pSz = 0, gSz = 0, qSz = 0;
+
+    switch (name) {
+        #ifdef HAVE_FFDHE_2048
+        case WC_FFDHE_2048:
+            pSz = sizeof(dh_ffdhe2048_p);
+            gSz = sizeof(dh_ffdhe2048_g);
+            #ifdef HAVE_FFDHE_Q
+            qSz = sizeof(dh_ffdhe2048_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_2048 */
+        #ifdef HAVE_FFDHE_3072
+        case WC_FFDHE_3072:
+            pSz = sizeof(dh_ffdhe3072_p);
+            gSz = sizeof(dh_ffdhe3072_g);
+            #ifdef HAVE_FFDHE_Q
+            qSz = sizeof(dh_ffdhe3072_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_3072 */
+        #ifdef HAVE_FFDHE_4096
+        case WC_FFDHE_4096:
+            pSz = sizeof(dh_ffdhe4096_p);
+            gSz = sizeof(dh_ffdhe4096_g);
+            #ifdef HAVE_FFDHE_Q
+            qSz = sizeof(dh_ffdhe4096_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_4096 */
+        #ifdef HAVE_FFDHE_6144
+        case WC_FFDHE_6144:
+            pSz = sizeof(dh_ffdhe6144_p);
+            gSz = sizeof(dh_ffdhe6144_g);
+            #ifdef HAVE_FFDHE_Q
+            qSz = sizeof(dh_ffdhe6144_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_6144 */
+        #ifdef HAVE_FFDHE_8192
+        case WC_FFDHE_8192:
+            pSz = sizeof(dh_ffdhe8192_p);
+            gSz = sizeof(dh_ffdhe8192_g);
+            #ifdef HAVE_FFDHE_Q
+            qSz = sizeof(dh_ffdhe8192_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_8192 */
+        default:
+            break;
+    }
+
+    if (p != NULL) *p = pSz;
+    if (g != NULL) *g = gSz;
+    if (q != NULL) *q = qSz;
+
+    return 0;
+}
+
+static int _DhSetKey(DhKey* key, const byte* p, word32 pSz, const byte* g,
+                   word32 gSz, const byte* q, word32 qSz, int trusted,
+                   WC_RNG* rng)
+{
+    int ret = 0;
+    mp_int* keyP = NULL;
+    mp_int* keyG = NULL;
+
+    if (key == NULL || p == NULL || g == NULL || pSz == 0 || gSz == 0) {
+        ret = BAD_FUNC_ARG;
+    }
+
+//    SAVE_VECTOR_REGISTERS(return _svr_ret;);
+
+    if (ret == 0) {
+        /* may have leading 0 */
+        if (p[0] == 0) {
+            pSz--; p++;
+        }
+
+        if (g[0] == 0) {
+            gSz--; g++;
+        }
+
+        if (q != NULL) {
+            if (q[0] == 0) {
+                qSz--; q++;
+            }
+        }
+
+        if (mp_init(&key->p) != MP_OKAY)
+            ret = MP_INIT_E;
+    }
+
+    if (ret == 0) {
+        if (mp_read_unsigned_bin(&key->p, p, pSz) != MP_OKAY)
+            ret = ASN_DH_KEY_E;
+        else
+            keyP = &key->p;
+    }
+
+    if (ret == 0 && !trusted) {
+        int isPrime = 0;
+        if (rng != NULL)
+            ret = mp_prime_is_prime_ex(keyP, 8, &isPrime, rng);
+        else
+            ret = mp_prime_is_prime(keyP, 8, &isPrime);
+
+        if (ret == 0 && isPrime == 0)
+            ret = DH_CHECK_PUB_E;
+    }
+
+    if (ret == 0 && mp_init(&key->g) != MP_OKAY)
+        ret = MP_INIT_E;
+    if (ret == 0) {
+        if (mp_read_unsigned_bin(&key->g, g, gSz) != MP_OKAY)
+            ret = ASN_DH_KEY_E;
+        else
+            keyG = &key->g;
+    }
+
+    if (ret == 0 && q != NULL) {
+        if (mp_init(&key->q) != MP_OKAY)
+            ret = MP_INIT_E;
+    }
+    if (ret == 0 && q != NULL) {
+        if (mp_read_unsigned_bin(&key->q, q, qSz) != MP_OKAY)
+            ret = MP_INIT_E;
+        else
+            key->trustedGroup = trusted;
+    }
+
+    if (ret != 0 && key != NULL) {
+        if (keyG)
+            mp_clear(keyG);
+        if (keyP)
+            mp_clear(keyP);
+    }
+
+//    RESTORE_VECTOR_REGISTERS();
+
+    return ret;
+}
+
+
+int wc_DhSetCheckKey(DhKey* key, const byte* p, word32 pSz, const byte* g,
+                   word32 gSz, const byte* q, word32 qSz, int trusted,
+                   WC_RNG* rng)
+{
+    return _DhSetKey(key, p, pSz, g, gSz, q, qSz, trusted, rng);
+}
+
+int wc_DhSetNamedKey(DhKey* key, int name)
+{
+    const byte* p = NULL;
+    const byte* g = NULL;
+    const byte* q = NULL;
+    word32 pSz = 0, gSz = 0, qSz = 0;
+
+    switch (name) {
+        #ifdef HAVE_FFDHE_2048
+        case WC_FFDHE_2048:
+            p = dh_ffdhe2048_p;
+            pSz = sizeof(dh_ffdhe2048_p);
+            g = dh_ffdhe2048_g;
+            gSz = sizeof(dh_ffdhe2048_g);
+            #ifdef HAVE_FFDHE_Q
+            q = dh_ffdhe2048_q;
+            qSz = sizeof(dh_ffdhe2048_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_2048 */
+        #ifdef HAVE_FFDHE_3072
+        case WC_FFDHE_3072:
+            p = dh_ffdhe3072_p;
+            pSz = sizeof(dh_ffdhe3072_p);
+            g = dh_ffdhe3072_g;
+            gSz = sizeof(dh_ffdhe3072_g);
+            #ifdef HAVE_FFDHE_Q
+            q = dh_ffdhe3072_q;
+            qSz = sizeof(dh_ffdhe3072_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_3072 */
+        #ifdef HAVE_FFDHE_4096
+        case WC_FFDHE_4096:
+            p = dh_ffdhe4096_p;
+            pSz = sizeof(dh_ffdhe4096_p);
+            g = dh_ffdhe4096_g;
+            gSz = sizeof(dh_ffdhe4096_g);
+            #ifdef HAVE_FFDHE_Q
+            q = dh_ffdhe4096_q;
+            qSz = sizeof(dh_ffdhe4096_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_4096 */
+        #ifdef HAVE_FFDHE_6144
+        case WC_FFDHE_6144:
+            p = dh_ffdhe6144_p;
+            pSz = sizeof(dh_ffdhe6144_p);
+            g = dh_ffdhe6144_g;
+            gSz = sizeof(dh_ffdhe6144_g);
+            #ifdef HAVE_FFDHE_Q
+            q = dh_ffdhe6144_q;
+            qSz = sizeof(dh_ffdhe6144_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_6144 */
+        #ifdef HAVE_FFDHE_8192
+        case WC_FFDHE_8192:
+            p = dh_ffdhe8192_p;
+            pSz = sizeof(dh_ffdhe8192_p);
+            g = dh_ffdhe8192_g;
+            gSz = sizeof(dh_ffdhe8192_g);
+            #ifdef HAVE_FFDHE_Q
+            q = dh_ffdhe8192_q;
+            qSz = sizeof(dh_ffdhe8192_q);
+            #endif /* HAVE_FFDHE_Q */
+            break;
+        #endif /* HAVE_FFDHE_8192 */
+        default:
+            break;
+    }
+    return _DhSetKey(key, p, pSz, g, gSz, q, qSz, 1, NULL);
+}
+#ifdef WOLFSSL_KEY_GEN
+
+/* modulus_size in bits */
+int wc_DhGenerateParams(WC_RNG *rng, int modSz, DhKey *dh)
+{
+#if defined(WOLFSSL_SMALL_STACK) && !defined(WOLFSSL_NO_MALLOC)
+    mp_int *tmp = NULL, *tmp2 = NULL;
+#else
+    mp_int tmp[1], tmp2[2];
+#endif
+    word32  groupSz = 0, bufSz = 0,
+            primeCheckCount = 0;
+    int     primeCheck = MP_NO,
+            ret = 0;
+    unsigned char *buf = NULL;
+
+#if !defined(WOLFSSL_SMALL_STACK) || defined(WOLFSSL_NO_MALLOC)
+    XMEMSET(tmp, 0, sizeof(tmp));
+    XMEMSET(tmp2, 0, sizeof(tmp2));
+#endif
+
+    if (rng == NULL || dh == NULL)
+        ret = BAD_FUNC_ARG;
+
+    /* set group size in bytes from modulus size
+     * FIPS 186-4 defines valid values (1024, 160) (2048, 256) (3072, 256)
+     */
+    if (ret == 0) {
+        switch (modSz) {
+            case 1024:
+                groupSz = 20;
+                break;
+            case 2048:
+            case 3072:
+                groupSz = 32;
+                break;
+            default:
+        #if !defined(HAVE_FIPS) && defined(WOLFSSL_NO_DH186)
+                /* in non fips mode attempt to match strength of group size with
+                 * mod size */
+                if (modSz < 2048)
+                    groupSz = 20;
+                else
+                    groupSz = 32;
+        #else
+                ret = BAD_FUNC_ARG;
+        #endif
+                break;
+        }
+    }
+
+    if (ret == 0) {
+        /* modulus size in bytes */
+        modSz /= WOLFSSL_BIT_SIZE;
+        bufSz = (word32)modSz - groupSz;
+
+        /* allocate ram */
+        buf = (unsigned char *)XMALLOC(bufSz,
+                                       dh->heap, DYNAMIC_TYPE_TMP_BUFFER);
+        if (buf == NULL)
+            ret = MEMORY_E;
+    }
+
+    /* make a random string that will be multiplied against q */
+    if (ret == 0)
+        ret = wc_RNG_GenerateBlock(rng, buf, bufSz);
+
+#if defined(WOLFSSL_SMALL_STACK) && !defined(WOLFSSL_NO_MALLOC)
+    if (ret == 0) {
+        if ((tmp = (mp_int *)XMALLOC(sizeof(*tmp), NULL,
+                DYNAMIC_TYPE_WOLF_BIGINT)) == NULL) {
+            ret = MEMORY_E;
+        }
+        else {
+            XMEMSET(tmp, 0, sizeof(*tmp));
+        }
+    }
+    if (ret == 0) {
+        if ((tmp2 = (mp_int *)XMALLOC(sizeof(*tmp2), NULL,
+                DYNAMIC_TYPE_WOLF_BIGINT)) == NULL) {
+            ret = MEMORY_E;
+        }
+        else {
+            XMEMSET(tmp2, 0, sizeof(*tmp2));
+        }
+    }
+#endif
+
+//    SAVE_VECTOR_REGISTERS(ret = _svr_ret;);
+
+    if (ret == 0) {
+        /* force magnitude */
+        buf[0] |= 0xC0;
+        /* force even */
+        buf[bufSz - 1] &= 0xfe;
+
+        if (mp_init_multi(tmp, tmp2, &dh->p, &dh->q, &dh->g, 0)
+                != MP_OKAY) {
+            ret = MP_INIT_E;
+        }
+    }
+
+    if (ret == 0) {
+        if (mp_read_unsigned_bin(tmp2, buf, bufSz) != MP_OKAY)
+            ret = MP_READ_E;
+    }
+
+    /* make our prime q */
+    if (ret == 0) {
+        if (mp_rand_prime(&dh->q, (int)groupSz, rng, NULL) != MP_OKAY)
+            ret = PRIME_GEN_E;
+    }
+
+    /* p = random * q */
+    if (ret == 0) {
+        if (mp_mul(&dh->q, tmp2, &dh->p) != MP_OKAY)
+            ret = MP_MUL_E;
+    }
+
+    /* p = random * q + 1, so q is a prime divisor of p-1 */
+    if (ret == 0) {
+        if (mp_add_d(&dh->p, 1, &dh->p) != MP_OKAY)
+            ret = MP_ADD_E;
+    }
+
+    /* tmp = 2q  */
+    if (ret == 0) {
+        if (mp_add(&dh->q, &dh->q, tmp) != MP_OKAY)
+            ret = MP_ADD_E;
+    }
+
+    /* loop until p is prime */
+    if (ret == 0) {
+        for (;;) {
+            if (mp_prime_is_prime_ex(&dh->p, 8, &primeCheck, rng) != MP_OKAY)
+                ret = PRIME_GEN_E;
+
+            if (primeCheck != MP_YES) {
+                /* p += 2q */
+                if (mp_add(tmp, &dh->p, &dh->p) != MP_OKAY)
+                    ret = MP_ADD_E;
+                else
+                    primeCheckCount++;
+            }
+
+            if (ret != 0 || primeCheck == MP_YES)
+                break;
+
+            /* linuxkm: release the kernel for a moment before iterating. */
+//            RESTORE_VECTOR_REGISTERS();
+//            SAVE_VECTOR_REGISTERS(ret = _svr_ret; break;);
+        };
+    }
+
+    /* tmp2 += (2*loop_check_prime)
+     * to have p = (q * tmp2) + 1 prime
+     */
+    if ((ret == 0) && (primeCheckCount)) {
+        if (mp_add_d(tmp2, 2 * primeCheckCount, tmp2) != MP_OKAY)
+            ret = MP_ADD_E;
+    }
+
+    /* find a value g for which g^tmp2 != 1 */
+    if ((ret == 0) && (mp_set(&dh->g, 1) != MP_OKAY))
+        ret = MP_ZERO_E;
+
+    if (ret == 0) {
+        do {
+            if (mp_add_d(&dh->g, 1, &dh->g) != MP_OKAY)
+                ret = MP_ADD_E;
+            else if (mp_exptmod(&dh->g, tmp2, &dh->p, tmp) != MP_OKAY)
+                ret = MP_EXPTMOD_E;
+        } while (ret == 0 && mp_cmp_d(tmp, 1) == MP_EQ);
+    }
+
+    if (ret == 0) {
+        /* at this point tmp generates a group of order q mod p */
+#ifndef USE_FAST_MATH
+        /* Exchanging is quick when the data pointer can be copied. */
+        mp_exch(tmp, &dh->g);
+#else
+        mp_copy(tmp, &dh->g);
+#endif
+    }
+
+    /* clear the parameters if there was an error */
+    if ((ret != 0) && (dh != NULL)) {
+        mp_clear(&dh->q);
+        mp_clear(&dh->p);
+        mp_clear(&dh->g);
+    }
+
+//    RESTORE_VECTOR_REGISTERS();
+
+    if (buf != NULL) {
+        ForceZero(buf, bufSz);
+        if (dh != NULL) {
+            XFREE(buf, dh->heap, DYNAMIC_TYPE_TMP_BUFFER);
+        }
+    }
+
+#if defined(WOLFSSL_SMALL_STACK) && !defined(WOLFSSL_NO_MALLOC)
+    if (tmp != NULL) {
+        mp_clear(tmp);
+        XFREE(tmp, NULL, DYNAMIC_TYPE_WOLF_BIGINT);
+    }
+    if (tmp2 != NULL) {
+        mp_clear(tmp2);
+        XFREE(tmp2, NULL, DYNAMIC_TYPE_WOLF_BIGINT);
+    }
+#else
+    mp_clear(tmp);
+    mp_clear(tmp2);
+#endif
+
+    return ret;
+}
+
+
+/* Export raw DH parameters from DhKey structure
+ *
+ * dh   - pointer to initialized DhKey structure
+ * p    - output location for DH (p) parameter
+ * pSz  - [IN/OUT] size of output buffer for p, size of p
+ * q    - output location for DH (q) parameter
+ * qSz  - [IN/OUT] size of output buffer for q, size of q
+ * g    - output location for DH (g) parameter
+ * gSz  - [IN/OUT] size of output buffer for g, size of g
+ *
+ * If p, q, and g pointers are all passed in as NULL, the function
+ * will set pSz, qSz, and gSz to the required output buffer sizes for p,
+ * q, and g. In this case, the function will return LENGTH_ONLY_E.
+ *
+ * returns 0 on success, negative upon failure
+ */
+int wc_DhExportParamsRaw(DhKey* dh, byte* p, word32* pSz,
+                         byte* q, word32* qSz, byte* g, word32* gSz)
+{
+    int ret = 0;
+    word32 pLen = 0, qLen = 0, gLen = 0;
+
+    if (dh == NULL || pSz == NULL || qSz == NULL || gSz == NULL)
+        ret = BAD_FUNC_ARG;
+
+    /* get required output buffer sizes */
+    if (ret == 0) {
+        pLen = (word32)mp_unsigned_bin_size(&dh->p);
+        qLen = (word32)mp_unsigned_bin_size(&dh->q);
+        gLen = (word32)mp_unsigned_bin_size(&dh->g);
+
+        /* return buffer sizes and LENGTH_ONLY_E if buffers are NULL */
+        if (p == NULL && q == NULL && g == NULL) {
+            *pSz = pLen;
+            *qSz = qLen;
+            *gSz = gLen;
+            ret = LENGTH_ONLY_E;
+        }
+    }
+
+    if (ret == 0) {
+        if (p == NULL || q == NULL || g == NULL)
+            ret = BAD_FUNC_ARG;
+    }
+
+    /* export p */
+    if (ret == 0) {
+        if (*pSz < pLen) {
+            WOLFSSL_MSG("Output buffer for DH p parameter too small, "
+                        "required size placed into pSz");
+            *pSz = pLen;
+            ret = BUFFER_E;
+        }
+    }
+
+    if (ret == 0) {
+        *pSz = pLen;
+        if (mp_to_unsigned_bin(&dh->p, p) != MP_OKAY)
+            ret = MP_TO_E;
+    }
+
+    /* export q */
+    if (ret == 0) {
+        if (*qSz < qLen) {
+            WOLFSSL_MSG("Output buffer for DH q parameter too small, "
+                        "required size placed into qSz");
+            *qSz = qLen;
+            ret = BUFFER_E;
+        }
+    }
+
+    if (ret == 0) {
+        *qSz = qLen;
+        if (mp_to_unsigned_bin(&dh->q, q) != MP_OKAY)
+            ret = MP_TO_E;
+    }
+
+    /* export g */
+    if (ret == 0) {
+        if (*gSz < gLen) {
+            WOLFSSL_MSG("Output buffer for DH g parameter too small, "
+                        "required size placed into gSz");
+            *gSz = gLen;
+            ret = BUFFER_E;
+        }
+    }
+
+    if (ret == 0) {
+        *gSz = gLen;
+        if (mp_to_unsigned_bin(&dh->g, g) != MP_OKAY)
+            ret = MP_TO_E;
+    }
+
+    return ret;
+}
+
+#endif /* WOLFSSL_KEY_GEN */
+
+/* End 3.14.2a (2024) updates */
+
 #endif /* NO_DH */

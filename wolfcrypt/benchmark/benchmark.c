@@ -27,6 +27,7 @@
     #include <config.h>
 #endif
 
+#include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/settings.h>
 
 /* Macro to disable benchmark */

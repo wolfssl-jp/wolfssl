@@ -31,12 +31,17 @@
  *  to fit wolfSSL's needs.
  */
 
+/* 3.14.2a (2024) after much ado (25 hours) did a complete (entire file) update
+ * to get all CAVP tests passing */
 #ifdef HAVE_CONFIG_H
     #include <config.h>
 #endif
 
 /* in case user set USE_FAST_MATH there */
 #include <wolfssl/wolfcrypt/settings.h>
+
+#ifdef USE_FAST_MATH
+
 #ifdef NO_INLINE
     #include <wolfssl/wolfcrypt/misc.h>
 #else
@@ -44,12 +49,43 @@
     #include <wolfcrypt/src/misc.c>
 #endif
 
-#ifdef USE_FAST_MATH
-
 #include <wolfssl/wolfcrypt/random.h>
 #include <wolfssl/wolfcrypt/tfm.h>
 #include <wolfcrypt/src/asm.c>  /* will define asm MACROS or C ones */
 #include <wolfssl/wolfcrypt/wolfmath.h> /* common functions */
+
+#ifdef WOLFSSL_ESPIDF
+    #include <esp_log.h>
+    #include <wolfssl/wolfcrypt/port/Espressif/esp32-crypt.h>
+#endif
+
+#if defined(WOLFSSL_ESP32_CRYPT_RSA_PRI)
+    static const char* TAG = "TFM"; /* esp log breadcrumb */
+    #if !defined(NO_WOLFSSL_ESP32_CRYPT_RSA_PRI)
+        /* Each individual math HW can be turned on or off.
+         * Listed in order of complexity and historical difficulty. */
+        #define WOLFSSL_ESP32_CRYPT_RSA_PRI_MP_MUL
+        #define WOLFSSL_ESP32_CRYPT_RSA_PRI_EXPTMOD
+        #define WOLFSSL_ESP32_CRYPT_RSA_PRI_MULMOD
+    #endif
+
+    #if defined(NO_WOLFSSL_ESP32_CRYPT_RSA_PRI_MP_MUL)
+        #undef WOLFSSL_ESP32_CRYPT_RSA_PRI_MP_MUL
+    #endif
+
+    #if defined(NO_WOLFSSL_ESP32_CRYPT_RSA_PRI_EXPTMOD)
+        #undef WOLFSSL_ESP32_CRYPT_RSA_PRI_EXPTMOD
+    #endif
+
+    #if defined(NO_WOLFSSL_ESP32_CRYPT_RSA_PRI_MULMOD)
+        #undef WOLFSSL_ESP32_CRYPT_RSA_PRI_MULMOD
+    #endif
+
+    /* Note with HW there's a EPS_RSA_EXPT_XBTIS setting
+     * as for some small numbers, SW may be faster.
+     * See ESP_LOGV messages for EPS_RSA_EXPT_XBTIS values. */
+
+#endif /* WOLFSSL_ESP32_CRYPT_RSA_PRI */
 
 #if defined(FREESCALE_LTC_TFM)
     #include <wolfssl/wolfcrypt/port/nxp/ksdk_port.h>
@@ -88,7 +124,7 @@ void fp_add(fp_int *a, fp_int *b, fp_int *c)
     /* both positive or both negative */
     /* add their magnitudes, copy the sign */
     c->sign = sa;
-    s_fp_add (a, b, c);
+    ret = s_fp_add (a, b, c);
   } else {
     /* one positive, the other negative */
     /* subtract the one with the greater magnitude from */
@@ -102,10 +138,12 @@ void fp_add(fp_int *a, fp_int *b, fp_int *c)
       s_fp_sub (a, b, c);
     }
   }
+
+  return ret;
 }
 
 /* unsigned addition */
-void s_fp_add(fp_int *a, fp_int *b, fp_int *c)
+int s_fp_add(fp_int *a, fp_int *b, fp_int *c)
 {
   int      x, y, oldused;
   fp_word  t;
@@ -115,12 +153,47 @@ void s_fp_add(fp_int *a, fp_int *b, fp_int *c)
   c->used = y;
 
   t = 0;
+#ifdef HONOR_MATH_USED_LENGTH
+  for (x = 0; x < y; x++) {
+      if ( (x < a->used) && (x < b->used) ) {
+          /* x is less than both [a].used and [b].used, so we add both */
+                  t += ((fp_word)a->dp[x])    +    ((fp_word)b->dp[x]);
+      }
+      else {
+          /* Here we honor the actual [a].used and [b].used values
+           * and NOT assume that values beyond [used] are zero. */
+          if ((x >= a->used) && (x < b->used)) {
+                  /* x more than [a].used, [b] ok, so just add [b] */
+                  t += /* ((fp_word)(0))      + */ ((fp_word)b->dp[x]);
+          }
+          else {
+              if ((x < a->used) && (x >= b->used)) {
+                  /* x more than [b].used, [a] ok, so just add [a] */
+                  t += ((fp_word)a->dp[x]) /* +     (fp_word)(0) */;
+              }
+              else {
+                  /* we should never get here, as a.used cannot be greater
+                   * than b.used, while b.used is greater than a.used! */
+               /* t += 0 + 0 */
+              }
+          }
+      }
+      c->dp[x]   = (fp_digit)t;
+      t        >>= DIGIT_BIT;
+  }
+
+#else
+  /* the original code */
   for (x = 0; x < y; x++) {
       t         += ((fp_word)a->dp[x]) + ((fp_word)b->dp[x]);
       c->dp[x]   = (fp_digit)t;
       t        >>= DIGIT_BIT;
   }
-  if (t != 0 && x < FP_SIZE) {
+#endif /* HONOR_MATH_USED_LENGTH */
+
+  if (t != 0) {
+     if (x == FP_SIZE)
+         return FP_VAL;
      c->dp[c->used++] = (fp_digit)t;
      ++x;
   }
@@ -132,12 +205,14 @@ void s_fp_add(fp_int *a, fp_int *b, fp_int *c)
      c->dp[x] = 0;
   }
   fp_clamp(c);
+  return FP_OKAY;
 }
 
 /* c = a - b */
-void fp_sub(fp_int *a, fp_int *b, fp_int *c)
+int fp_sub(fp_int *a, fp_int *b, fp_int *c)
 {
-  int     sa, sb;
+  int sa, sb;
+  int ret = FP_OKAY;
 
   sa = a->sign;
   sb = b->sign;
@@ -148,7 +223,7 @@ void fp_sub(fp_int *a, fp_int *b, fp_int *c)
     /* In either case, ADD their magnitudes, */
     /* and use the sign of the first number. */
     c->sign = sa;
-    s_fp_add (a, b, c);
+    ret = s_fp_add (a, b, c);
   } else {
     /* subtract a positive from a positive, OR */
     /* subtract a negative from a negative. */
@@ -167,6 +242,7 @@ void fp_sub(fp_int *a, fp_int *b, fp_int *c)
       s_fp_sub (b, a, c);
     }
   }
+  return ret;
 }
 
 /* unsigned subtraction ||a|| >= ||b|| ALWAYS! */
@@ -319,9 +395,15 @@ clean:
     }
 }
 
-void fp_mul_2(fp_int * a, fp_int * b)
+int fp_mul_2(fp_int * a, fp_int * b)
 {
   int     x, oldused;
+
+  /* Make sure value to double and result are in range. */
+  if ((a->used > (FP_SIZE-1)) || ((a->used == (FP_SIZE - 1)) &&
+              ((a->dp[FP_SIZE - 1] & ((fp_digit)1 << (DIGIT_BIT - 1))) != 0))) {
+    return FP_VAL;
+  }
 
   oldused = b->used;
   b->used = a->used;
@@ -354,7 +436,7 @@ void fp_mul_2(fp_int * a, fp_int * b)
     }
 
     /* new leading digit? */
-    if (r != 0 && b->used != (FP_SIZE-1)) {
+    if (r != 0) {
       /* add a MSB which is always 1 at this point */
       *tmpb = 1;
       ++(b->used);
@@ -367,10 +449,12 @@ void fp_mul_2(fp_int * a, fp_int * b)
     }
   }
   b->sign = a->sign;
+
+  return FP_OKAY;
 }
 
 /* c = a * b */
-void fp_mul_d(fp_int *a, fp_digit b, fp_int *c)
+int fp_mul_d(fp_int *a, fp_digit b, fp_int *c)
 {
    fp_word  w;
    int      x, oldused;
@@ -384,20 +468,25 @@ void fp_mul_d(fp_int *a, fp_digit b, fp_int *c)
        c->dp[x]  = (fp_digit)w;
        w         = w >> DIGIT_BIT;
    }
-   if (w != 0 && (a->used != FP_SIZE)) {
+   if (w != 0) {
+      if (a->used == FP_SIZE)
+          return FP_VAL;
       c->dp[c->used++] = (fp_digit) w;
       ++x;
    }
 
    /* zero any excess digits on the destination that we didn't write to */
-   for (; x < oldused; x++) {
+   /* also checking FP_SIZE here for static analysis */
+   for (; x < oldused && x < FP_SIZE; x++) {
       c->dp[x] = 0;
    }
+
    fp_clamp(c);
+   return FP_OKAY;
 }
 
 /* c = a * 2**d */
-void fp_mul_2d(fp_int *a, int b, fp_int *c)
+int fp_mul_2d(fp_int *a, int b, fp_int *c)
 {
    fp_digit carry, carrytmp, shift;
    int x;
@@ -407,7 +496,9 @@ void fp_mul_2d(fp_int *a, int b, fp_int *c)
 
    /* handle whole digits */
    if (b >= DIGIT_BIT) {
-      fp_lshd(c, b/DIGIT_BIT);
+      int ret = fp_lshd(c, b/DIGIT_BIT);
+      if (ret != FP_OKAY)
+         return ret;
    }
    b %= DIGIT_BIT;
 
@@ -424,8 +515,11 @@ void fp_mul_2d(fp_int *a, int b, fp_int *c)
       if (carry && x < FP_SIZE) {
          c->dp[c->used++] = carry;
       }
+      if (x == FP_SIZE)
+         return FP_VAL;
    }
    fp_clamp(c);
+   return FP_OKAY;
 }
 
 /* generic PxQ multiplier */
@@ -450,7 +544,7 @@ INLINE static void fp_mul_comba_mulx(fp_int *A, fp_int *B, fp_int *C)
       dst = &tmp;
    }
 
-   TFM_INTEL_MUL_COMBA(A, B, dst) ;
+   TFM_INTEL_MUL_COMBA(A, B, carry, dst) ;
 
   dst->used = pa;
   dst->sign = A->sign ^ B->sign;
@@ -528,7 +622,8 @@ int fp_div(fp_int *a, fp_int *b, fp_int *c, fp_int *d)
   }
 
   /* if a < b then q=0, r = a */
-  if (fp_cmp_mag (a, b) == FP_LT) {
+  if (fp_cmp_mag (a, b) == FP_LT)
+  {
     if (d != NULL) {
       fp_copy (a, d);
     }
@@ -696,6 +791,33 @@ void fp_div_2(fp_int * a, fp_int * b)
   fp_clamp (b);
 }
 
+/* c = a / 2 (mod b) - constant time (a < b and positive) */
+int fp_div_2_mod_ct(fp_int *a, fp_int *b, fp_int *c)
+{
+  fp_word  w = 0;
+  fp_digit mask;
+  int i;
+
+  mask = 0 - (a->dp[0] & 1);
+  for (i = 0; i < b->used; i++) {
+      fp_digit mask_a = 0 - (i < a->used);
+
+      w         += b->dp[i] & mask;
+      w         += a->dp[i] & mask_a;
+      c->dp[i]   = (fp_digit)w;
+      w        >>= DIGIT_BIT;
+  }
+  for (i = 0; i < b->used-1; i++) {
+      c->dp[i] = (c->dp[i] >> 1) | (c->dp[i+1] << (DIGIT_BIT - 1));
+  }
+  c->dp[i] = (c->dp[i] >> 1) | ((fp_digit)w << (DIGIT_BIT - 1));
+  c->used = i + 1;
+  c->sign = FP_ZPOS;
+  fp_clamp(c);
+
+  return FP_OKAY;
+}
+
 /* c = a / 2**b */
 void fp_div_2d(fp_int *a, int b, fp_int *c, fp_int *d)
 {
@@ -758,7 +880,8 @@ int fp_mod(fp_int *a, fp_int *b, fp_int *c)
 /* c = a mod 2**d */
 void fp_mod_2d(fp_int *a, int b, fp_int *c)
 {
-   int x;
+   unsigned int x;
+   unsigned int bmax;
 
    /* zero if count less than or equal to zero */
    if (b <= 0) {
@@ -770,16 +893,44 @@ void fp_mod_2d(fp_int *a, int b, fp_int *c)
    fp_copy(a, c);
 
    /* if 2**d is larger than we just return */
-   if (b >= (DIGIT_BIT * a->used)) {
+   if (c->sign == FP_ZPOS && b >= (DIGIT_BIT * a->used)) {
+      return;
+   }
+
+   bmax = ((unsigned int)b + DIGIT_BIT - 1) / DIGIT_BIT;
+
+   /* If a is negative and bmax is larger than FP_SIZE, then the
+    * result can't fit within c. Just return. */
+   if (c->sign == FP_NEG && bmax > FP_SIZE) {
       return;
    }
 
   /* zero digits above the last digit of the modulus */
-  for (x = (b / DIGIT_BIT) + ((b % DIGIT_BIT) == 0 ? 0 : 1); x < c->used; x++) {
+   for (x = bmax; x < (unsigned int)c->used; x++) {
     c->dp[x] = 0;
   }
+
+  if (c->sign == FP_NEG) {
+     fp_digit carry = 0;
+     /* negate value */
+     for (x = 0; x < (unsigned int)c->used; x++) {
+         fp_digit next = c->dp[x] > 0;
+         c->dp[x] = (fp_digit)0 - c->dp[x] - carry;
+         carry |= next;
+     }
+     for (; x < bmax; x++) {
+         c->dp[x] = (fp_digit)0 - carry;
+     }
+     c->used = (int)bmax;
+     c->sign = FP_ZPOS;
+  }
+
   /* clear the digit that is not completely outside/inside the modulus */
-  c->dp[b / DIGIT_BIT] &= ~((fp_digit)0) >> (DIGIT_BIT - b);
+  x = DIGIT_BIT - (b % DIGIT_BIT);
+  if (x != DIGIT_BIT) {
+     c->dp[bmax - 1] &= ~((fp_digit)0) >> x;
+  }
+
   fp_clamp (c);
 }
 
@@ -1045,11 +1196,14 @@ int fp_addmod(fp_int *a, fp_int *b, fp_int *c, fp_int *d)
 
 #ifdef TFM_TIMING_RESISTANT
 
+#ifndef WC_PROTECT_ENCRYPTED_MEM
+
 /* timing resistant montgomery ladder based exptmod
    Based on work by Marc Joye, Sung-Ming Yen, "The Montgomery Powering Ladder",
    Cryptographic Hardware and Embedded Systems, CHES 2002
 */
-static int _fp_exptmod(fp_int * G, fp_int * X, fp_int * P, fp_int * Y)
+static int _fp_exptmod_ct(fp_int * G, fp_int * X, int digits, fp_int * P,
+                          fp_int * Y)
 {
 #ifdef WC_NO_CACHE_RESISTANT
   fp_int   R[2];
@@ -1071,16 +1225,34 @@ static int _fp_exptmod(fp_int * G, fp_int * X, fp_int * P, fp_int * Y)
 #endif
 
   /* now we need R mod m */
-  fp_montgomery_calc_normalization (&R[0], P);
+  err = fp_montgomery_calc_normalization (&R[0], P);
+  if (err != FP_OKAY) {
+  #ifdef WOLFSSL_SMALL_STACK
+    XFREE(R, NULL, DYNAMIC_TYPE_BIGINT);
+  #endif
+    return err;
+  }
 
   /* now set R[0][1] to G * R mod m */
   if (fp_cmp_mag(P, G) != FP_GT) {
      /* G > P so we reduce it first */
-     fp_mod(G, P, &R[1]);
+     err = fp_mod(G, P, &R[1]);
+     if (err != FP_OKAY) {
+#ifdef WOLFSSL_SMALL_STACK
+         XFREE(R, NULL, DYNAMIC_TYPE_BIGINT);
+#endif
+         return err;
+     }
   } else {
      fp_copy(G, &R[1]);
   }
-  fp_mulmod (&R[1], &R[0], P, &R[1]);
+  err = fp_mulmod (&R[1], &R[0], P, &R[1]);
+  if (err != FP_OKAY) {
+#ifdef WOLFSSL_SMALL_STACK
+      XFREE(R, NULL, DYNAMIC_TYPE_BIGINT);
+#endif
+      return err;
+  }
 
   /* for j = t-1 downto 0 do
         r_!k = R0*R1; r_k = r_k^2
@@ -1089,7 +1261,7 @@ static int _fp_exptmod(fp_int * G, fp_int * X, fp_int * P, fp_int * Y)
   /* set initial mode and bit cnt */
   bitcnt = 1;
   buf    = 0;
-  digidx = X->used - 1;
+  digidx = digits - 1;
 
   for (;;) {
     /* grab next digit as required */
@@ -1238,6 +1410,207 @@ static int _fp_exptmod(fp_int * G, fp_int * X, fp_int * P, fp_int * Y)
     y     = (int)(buf >> (DIGIT_BIT - 1)) & 1;
     buf <<= (fp_digit)1;
 
+    /* do ops */
+    err = fp_mul(&R[0], &R[1], &R[2]);
+    if (err != FP_OKAY) {
+    #ifdef WOLFSSL_SMALL_STACK
+      XFREE(R, NULL, DYNAMIC_TYPE_BIGINT);
+    #endif
+      return err;
+    }
+    err = fp_montgomery_reduce(&R[2], P, mp);
+    if (err != FP_OKAY) {
+    #ifdef WOLFSSL_SMALL_STACK
+      XFREE(R, NULL, DYNAMIC_TYPE_BIGINT);
+    #endif
+      return err;
+    }
+
+    /* instead of using R[y] for sqr, which leaks key bit to cache monitor,
+     * use R[3] as temp, make sure address calc is constant, keep
+     * &R[0] and &R[1] in cache */
+    fp_copy((fp_int*) ( ((wc_ptr_t)&R[0] & wc_off_on_addr[y^1]) +
+                        ((wc_ptr_t)&R[1] & wc_off_on_addr[y]) ),
+            &R[3]);
+    err = fp_sqr(&R[3], &R[3]);
+    if (err != FP_OKAY) {
+    #ifdef WOLFSSL_SMALL_STACK
+      XFREE(R, NULL, DYNAMIC_TYPE_BIGINT);
+    #endif
+      return err;
+    }
+    err = fp_montgomery_reduce(&R[3], P, mp);
+    if (err != FP_OKAY) {
+    #ifdef WOLFSSL_SMALL_STACK
+      XFREE(R, NULL, DYNAMIC_TYPE_BIGINT);
+    #endif
+      return err;
+    }
+    fp_copy_2_ct(&R[2], &R[3], &R[0], &R[1], y, P->used);
+  }
+
+  err = fp_montgomery_reduce(&R[0], P, mp);
+  fp_copy(&R[0], Y);
+#ifdef WOLFSSL_SMALL_STACK
+  XFREE(R, NULL, DYNAMIC_TYPE_BIGINT);
+#endif
+  return err;
+}
+
+#endif /* WC_PROTECT_ENCRYPTED_MEM */
+
+#endif /* TFM_TIMING_RESISTANT */
+
+/* y = g**x (mod b)
+ * Some restrictions... x must be positive and < b
+ */
+static int _fp_exptmod_nct(fp_int * G, fp_int * X, fp_int * P, fp_int * Y)
+{
+  fp_int  *res;
+  fp_digit buf, mp;
+  int      err, bitbuf, bitcpy, bitcnt, mode, digidx, x, y, winsize;
+#ifndef WOLFSSL_NO_MALLOC
+  fp_int  *M;
+#else
+  fp_int   M[(1 << 6) + 1];
+#endif
+
+  /* find window size */
+  x = fp_count_bits (X);
+  if (x <= 21) {
+    winsize = 1;
+  } else if (x <= 36) {
+    winsize = 3;
+  } else if (x <= 140) {
+    winsize = 4;
+  } else if (x <= 450) {
+    winsize = 5;
+  } else {
+    winsize = 6;
+  }
+
+  /* now setup montgomery  */
+  if ((err = fp_montgomery_setup (P, &mp)) != FP_OKAY) {
+     return err;
+  }
+
+#ifndef WOLFSSL_NO_MALLOC
+  /* only allocate space for what's needed for window plus res */
+  M = (fp_int*)XMALLOC(sizeof(fp_int)*((1 << winsize) + 1), NULL,
+                                                           DYNAMIC_TYPE_BIGINT);
+  if (M == NULL) {
+     return FP_MEM;
+  }
+#endif
+  res = &M[(word32)(1 << winsize)];
+
+  /* init M array */
+  for(x = 0; x < (1 << winsize); x++)
+    fp_init(&M[x]);
+
+  /* setup result */
+  fp_init(res);
+
+  /* create M table
+   *
+   * The M table contains powers of the input base, e.g. M[x] = G^x mod P
+   *
+   * The first half of the table is not computed though except for M[0] and M[1]
+   */
+
+  /* now we need R mod m */
+  err = fp_montgomery_calc_normalization (res, P);
+  if (err != FP_OKAY) {
+#ifndef WOLFSSL_NO_MALLOC
+    XFREE(M, NULL, DYNAMIC_TYPE_BIGINT);
+#endif
+    return err;
+  }
+
+  /* now set M[1] to G * R mod m */
+  if (fp_cmp_mag(P, G) != FP_GT) {
+     /* G > P so we reduce it first */
+     err = fp_mod(G, P, &M[1]);
+     if (err != FP_OKAY) {
+     #ifndef WOLFSSL_NO_MALLOC
+        XFREE(M, NULL, DYNAMIC_TYPE_BIGINT);
+     #endif
+        return err;
+     }
+  } else {
+     fp_copy(G, &M[1]);
+  }
+  err = fp_mulmod (&M[1], res, P, &M[1]);
+  if (err != FP_OKAY) {
+  #ifndef WOLFSSL_NO_MALLOC
+     XFREE(M, NULL, DYNAMIC_TYPE_BIGINT);
+  #endif
+     return err;
+  }
+
+  /* compute the value at M[1<<(winsize-1)] by
+   * squaring M[1] (winsize-1) times */
+  fp_copy (&M[1], &M[(word32)(1 << (winsize - 1))]);
+  for (x = 0; x < (winsize - 1); x++) {
+    err = fp_sqr (&M[(word32)(1 << (winsize - 1))],
+                  &M[(word32)(1 << (winsize - 1))]);
+    if (err != FP_OKAY) {
+#ifndef WOLFSSL_NO_MALLOC
+      XFREE(M, NULL, DYNAMIC_TYPE_BIGINT);
+#endif
+      return err;
+    }
+    err = fp_montgomery_reduce_ex(&M[(word32)(1 << (winsize - 1))], P, mp, 0);
+    if (err != FP_OKAY) {
+#ifndef WOLFSSL_NO_MALLOC
+      XFREE(M, NULL, DYNAMIC_TYPE_BIGINT);
+#endif
+      return err;
+    }
+  }
+
+  /* create upper table */
+  for (x = (1 << (winsize - 1)) + 1; x < (1 << winsize); x++) {
+    err = fp_mul(&M[x - 1], &M[1], &M[x]);
+    if (err != FP_OKAY) {
+#ifndef WOLFSSL_NO_MALLOC
+      XFREE(M, NULL, DYNAMIC_TYPE_BIGINT);
+#endif
+      return err;
+    }
+    err = fp_montgomery_reduce_ex(&M[x], P, mp, 0);
+    if (err != FP_OKAY) {
+#ifndef WOLFSSL_NO_MALLOC
+      XFREE(M, NULL, DYNAMIC_TYPE_BIGINT);
+#endif
+      return err;
+    }
+  }
+
+  /* set initial mode and bit cnt */
+  mode   = 0;
+  bitcnt = (x % DIGIT_BIT) + 1;
+  buf    = 0;
+  digidx = X->used - 1;
+  bitcpy = 0;
+  bitbuf = 0;
+
+  for (;;) {
+    /* grab next digit as required */
+    if (--bitcnt == 0) {
+      /* if digidx == -1 we are out of digits so break */
+      if (digidx == -1) {
+        break;
+      }
+      /* read next digit and reset bitcnt */
+      buf    = X->dp[digidx--];
+      bitcnt = (int)DIGIT_BIT;
+    }
+
+    /* grab the next msb from the exponent */
+    y     = (int)(buf >> (DIGIT_BIT - 1)) & 1;
+    buf <<= (fp_digit)1;
+
     /* if the bit is zero and mode == 0 then we ignore it
      * These represent the leading zero bits before the first 1 bit
      * in the exponent.  Technically this opt is not required but it
@@ -1343,7 +1716,7 @@ int fp_exptmod(fp_int * G, fp_int * X, fp_int * P, fp_int * Y)
    }
    else {
       /* Positive exponent so just exptmod */
-      return _fp_exptmod(G, X, P, Y);
+      return  _fp_exptmod_nct(G, X, P, Y);
    }
 }
 
@@ -1491,7 +1864,7 @@ void fp_sqr_comba(fp_int *A, fp_int *B)
   fp_digit  c0, c1, c2;
   fp_int    tmp, *dst;
 #ifdef TFM_ISO
-  fp_word   tt;
+  fp_word   tt = 0;
 #endif
 
   /* get size of output and trim */
@@ -1629,6 +2002,7 @@ int fp_cmp_mag(fp_int *a, fp_int *b)
    return FP_EQ;
 }
 
+
 /* sets up the montgomery reduction */
 int fp_montgomery_setup(fp_int *a, fp_digit *rho)
 {
@@ -1665,7 +2039,7 @@ int fp_montgomery_setup(fp_int *a, fp_digit *rho)
 /* computes a = B**n mod b without division or multiplication useful for
  * normalizing numbers in a Montgomery system.
  */
-void fp_montgomery_calc_normalization(fp_int *a, fp_int *b)
+int fp_montgomery_calc_normalization(fp_int *a, fp_int *b)
 {
   int     x, bits;
 
@@ -1683,11 +2057,15 @@ void fp_montgomery_calc_normalization(fp_int *a, fp_int *b)
 
   /* now compute C = A * B mod b */
   for (x = bits - 1; x < (int)DIGIT_BIT; x++) {
-    fp_mul_2 (a, a);
+    int err = fp_mul_2 (a, a);
+    if (err != FP_OKAY) {
+      return err;
+    }
     if (fp_cmp_mag (a, b) != FP_LT) {
       s_fp_sub (a, b, a);
     }
   }
+  return FP_OKAY;
 }
 
 
@@ -1808,7 +2186,16 @@ void fp_montgomery_reduce(fp_int *a, fp_int *m, fp_digit mp)
    pa = m->used;
 
    /* copy the input */
+#ifdef TFM_TIMING_RESISTANT
+   if (a->used <= m->used) {
+      oldused = m->used;
+   }
+   else {
+      oldused = m->used * 2;
+   }
+#else
    oldused = a->used;
+#endif
    for (x = 0; x < oldused; x++) {
        c[x] = a->dp[x];
    }
@@ -1833,7 +2220,7 @@ void fp_montgomery_reduce(fp_int *a, fp_int *m, fp_digit mp)
           ++_c;
        }
        LOOP_END;
-       while (cy) {
+       while (cy) { /* //NOLINT(bugprone-infinite-loop) */ /* PROPCARRY is an asm macro */
            PROPCARRY;
            ++_c;
        }
@@ -1872,6 +2259,10 @@ void fp_read_unsigned_bin(fp_int *a, const unsigned char *b, int c)
 
   /* zero the int */
   fp_zero (a);
+
+  if (c == 0) {
+      return FP_OKAY;
+  }
 
   /* if input b excess max, then truncate */
   if (c > 0 && (word32)c > maxC) {
@@ -1924,15 +2315,18 @@ void fp_read_unsigned_bin(fp_int *a, const unsigned char *b, int c)
   }
 #endif
   fp_clamp (a);
+
+  return FP_OKAY;
 }
 
 int fp_to_unsigned_bin_at_pos(int x, fp_int *t, unsigned char *b)
 {
 #if DIGIT_BIT == 64 || DIGIT_BIT == 32
-   int i, j;
+   int i;
+   int j = 0;
    fp_digit n;
 
-   for (j=0,i=0; i<t->used-1; ) {
+   for (i = 0; i < t->used-1; ) {
        b[x++] = (unsigned char)(t->dp[i] >> j);
        j += 8;
        i += j == DIGIT_BIT;
@@ -1981,21 +2375,26 @@ void fp_set(fp_int *a, fp_digit b)
 #ifndef MP_SET_CHUNK_BITS
     #define MP_SET_CHUNK_BITS 4
 #endif
-void fp_set_int(fp_int *a, unsigned long b)
+int fp_set_int(fp_int *a, unsigned long b)
 {
+  /* use direct fp_set if b is less than fp_digit max
+   * If input max value of b down shift by 1 less than full range
+   * fp_digit, then condition is always true. */
+#if ((ULONG_MAX >> (DIGIT_BIT-1)) > 0)
   int x;
-
-  /* use direct fp_set if b is less than fp_digit max */
-  if (b < FP_DIGIT_MAX) {
+  if (b < FP_DIGIT_MAX)
+  {
     fp_set (a, (fp_digit)b);
-    return;
+    return FP_OKAY;
   }
 
   fp_zero (a);
 
   /* set chunk bits at a time */
   for (x = 0; x < (int)(sizeof(b) * 8) / MP_SET_CHUNK_BITS; x++) {
-    fp_mul_2d (a, MP_SET_CHUNK_BITS, a);
+    int err = fp_mul_2d (a, MP_SET_CHUNK_BITS, a);
+    if (err != FP_OKAY)
+        return err;
 
     /* OR in the top bits of the source */
     a->dp[0] |= (b >> ((sizeof(b) * 8) - MP_SET_CHUNK_BITS)) &
@@ -2010,6 +2409,11 @@ void fp_set_int(fp_int *a, unsigned long b)
 
   /* clamp digits */
   fp_clamp(a);
+#else
+  fp_set (a, (fp_digit)b);
+#endif
+
+  return FP_OKAY;
 }
 
 /* check if a bit is set */
@@ -2018,9 +2422,9 @@ int fp_is_bit_set (fp_int *a, fp_digit b)
     fp_digit i;
 
     if (b > FP_MAX_BITS)
-        return 0;
-    else
-        i = b/DIGIT_BIT;
+        return FP_VAL;
+
+    i = b/DIGIT_BIT;
 
     if ((fp_digit)a->used < i)
         return 0;
@@ -2034,9 +2438,9 @@ int fp_set_bit (fp_int * a, fp_digit b)
     fp_digit i;
 
     if (b > FP_MAX_BITS)
-        return 0;
-    else
-        i = b/DIGIT_BIT;
+        return FP_VAL;
+
+    i = b/DIGIT_BIT;
 
     /* set the used count of where the bit will go if required */
     if (a->used < (int)(i+1))
@@ -2048,7 +2452,7 @@ int fp_set_bit (fp_int * a, fp_digit b)
     return MP_OKAY;
 }
 
-int fp_count_bits (fp_int * a)
+int fp_count_bits (const fp_int * a)
 {
   int     r;
   fp_digit q;
@@ -2090,12 +2494,13 @@ int fp_leading_bit(fp_int *a)
     return bit;
 }
 
-void fp_lshd(fp_int *a, int x)
+int fp_lshd(fp_int *a, int x)
 {
     int y;
 
-    /* move up and truncate as required */
-    y = MIN(a->used + x - 1, (int)(FP_SIZE-1));
+    if (a->used + x > FP_SIZE) return FP_VAL;
+
+    y = a->used + x - 1;
 
     /* store new size */
     a->used = y + 1;
@@ -2112,6 +2517,7 @@ void fp_lshd(fp_int *a, int x)
 
     /* clamp digits */
     fp_clamp(a);
+    return FP_OKAY;
 }
 
 
@@ -2121,6 +2527,24 @@ void fp_rshb(fp_int *c, int x)
     fp_digit *tmpc, mask, shift;
     fp_digit r, rr;
     fp_digit D = x;
+
+    /* shifting by a negative number not supported, and shifting by
+     * zero changes nothing.
+     */
+    if (x <= 0) return;
+
+    /* shift digits first if needed */
+    if (x >= DIGIT_BIT) {
+        fp_rshd(c, x / DIGIT_BIT);
+        /* recalculate number of bits to shift */
+        D = x % DIGIT_BIT;
+        /* check if any more shifting needed */
+        if (D == 0) return;
+
+    }
+
+    /* zero shifted is always zero */
+    if (fp_iszero(c)) return;
 
     /* mask */
     mask = (((fp_digit)1) << D) - 1;
@@ -2175,23 +2599,6 @@ void fp_rshd(fp_int *a, int x)
    fp_clamp(a);
 }
 
-/* reverse an array, used for radix code */
-void fp_reverse (unsigned char *s, int len)
-{
-  int     ix, iy;
-  unsigned char t;
-
-  ix = 0;
-  iy = len - 1;
-  while (ix < iy) {
-    t     = s[ix];
-    s[ix] = s[iy];
-    s[iy] = t;
-    ++ix;
-    --iy;
-  }
-}
-
 
 /* c = a - b */
 void fp_sub_d(fp_int *a, fp_digit b, fp_int *c)
@@ -2234,22 +2641,26 @@ void fp_init(fp_int *a)
 
 void fp_zero(fp_int *a)
 {
-    int size = FP_SIZE;
+    int size;
     a->used = 0;
     a->sign = FP_ZPOS;
 #if defined(ALT_ECC_SIZE) || defined(HAVE_WOLF_BIGINT)
     size = a->size;
+#else
+    size = FP_SIZE;
 #endif
     XMEMSET(a->dp, 0, size * sizeof(fp_digit));
 }
 
 void fp_clear(fp_int *a)
 {
-    int size = FP_SIZE;
+    int size;
     a->used = 0;
     a->sign = FP_ZPOS;
 #if defined(ALT_ECC_SIZE) || defined(HAVE_WOLF_BIGINT)
     size = a->size;
+#else
+    size = FP_SIZE;
 #endif
     XMEMSET(a->dp, 0, size * sizeof(fp_digit));
     fp_free(a);
@@ -2257,11 +2668,16 @@ void fp_clear(fp_int *a)
 
 void fp_forcezero (mp_int * a)
 {
-    int size = FP_SIZE;
+    if (a == NULL)
+      return;
+
+    int size;
     a->used = 0;
     a->sign = FP_ZPOS;
 #if defined(ALT_ECC_SIZE) || defined(HAVE_WOLF_BIGINT)
     size = a->size;
+#else
+    size = FP_SIZE;
 #endif
     ForceZero(a->dp, size * sizeof(fp_digit));
 #ifdef HAVE_WOLF_BIGINT
@@ -2321,15 +2737,13 @@ int mp_init_multi(mp_int* a, mp_int* b, mp_int* c, mp_int* d,
 /* high level addition (handles signs) */
 int mp_add (mp_int * a, mp_int * b, mp_int * c)
 {
-  fp_add(a, b, c);
-  return MP_OKAY;
+  return fp_add(a, b, c);
 }
 
 /* high level subtraction (handles signs) */
 int mp_sub (mp_int * a, mp_int * b, mp_int * c)
 {
-  fp_sub(a, b, c);
-  return MP_OKAY;
+  return fp_sub(a, b, c);
 }
 
 /* high level multiplication (handles sign) */
@@ -2345,8 +2759,7 @@ int mp_mul (mp_int * a, mp_int * b, mp_int * c)
 
 int mp_mul_d (mp_int * a, mp_digit b, mp_int * c)
 {
-  fp_mul_d(a, b, c);
-  return MP_OKAY;
+  return fp_mul_d(a, b, c);
 }
 
 /* d = a * b (mod c) */
@@ -2371,6 +2784,18 @@ int mp_addmod(mp_int *a, mp_int *b, mp_int *c, mp_int *d)
   return fp_addmod(a, b, c, d);
 }
 
+/* d = a - b (mod c) - constant time (a < c and b < c) */
+int mp_submod_ct(mp_int *a, mp_int *b, mp_int *c, mp_int *d)
+{
+  return fp_submod_ct(a, b, c, d);
+}
+
+/* d = a + b (mod c) - constant time (a < c and b < c) */
+int mp_addmod_ct(mp_int *a, mp_int *b, mp_int *c, mp_int *d)
+{
+  return fp_addmod_ct(a, b, c, d);
+}
+
 /* c = a mod b, 0 <= c < b */
 #if defined(FREESCALE_LTC_TFM)
 int wolfcrypt_mp_mod (mp_int * a, mp_int * b, mp_int * c)
@@ -2391,9 +2816,15 @@ int mp_invmod (mp_int * a, mp_int * b, mp_int * c)
   return fp_invmod(a, b, c);
 }
 
+/* hac 14.61, pp608 */
+int mp_invmod_mont_ct (mp_int * a, mp_int * b, mp_int * c, mp_digit mp)
+{
+  return fp_invmod_mont_ct(a, b, c, mp);
+}
+
 /* this is a shell function that calls either the normal or Montgomery
  * exptmod functions.  Originally the call to the montgomery code was
- * embedded in the normal function but that wasted alot of stack space
+ * embedded in the normal function but that wasted a lot of stack space
  * for nothing (since 99% of the time the Montgomery code would be called)
  */
 #if defined(FREESCALE_LTC_TFM)
@@ -2404,6 +2835,21 @@ int mp_exptmod (mp_int * G, mp_int * X, mp_int * P, mp_int * Y)
 {
   return fp_exptmod(G, X, P, Y);
 }
+
+int mp_exptmod_ex (mp_int * G, mp_int * X, int digits, mp_int * P, mp_int * Y)
+{
+  return fp_exptmod_ex(G, X, digits, P, Y);
+}
+
+#if defined(FREESCALE_LTC_TFM)
+int wolfcrypt_mp_exptmod_nct (mp_int * G, mp_int * X, mp_int * P, mp_int * Y)
+#else
+int mp_exptmod_nct (mp_int * G, mp_int * X, mp_int * P, mp_int * Y)
+#endif
+{
+  return fp_exptmod_nct(G, X, P, Y);
+}
+
 
 /* compare two ints (signed)*/
 int mp_cmp (mp_int * a, mp_int * b)
@@ -2418,14 +2864,14 @@ int mp_cmp_d(mp_int * a, mp_digit b)
 }
 
 /* get the size for an unsigned equivalent */
-int mp_unsigned_bin_size (mp_int * a)
+int mp_unsigned_bin_size (const mp_int * a)
 {
   return fp_unsigned_bin_size(a);
 }
 
 int mp_to_unsigned_bin_at_pos(int x, fp_int *t, unsigned char *b)
 {
-    return fp_to_unsigned_bin_at_pos(x, t, b);
+  return fp_to_unsigned_bin_at_pos(x, t, b);
 }
 
 /* store in unsigned [big endian] format */
@@ -2503,16 +2949,24 @@ void fp_copy(fp_int *a, fp_int *b)
     }
 }
 
+int mp_init_copy(fp_int * a, fp_int * b)
+{
+    fp_init_copy(a, b);
+    return MP_OKAY;
+}
+
+/* Copy (dst = a) from (src = b) */
 void fp_init_copy(fp_int *a, fp_int* b)
 {
     if (a != b) {
         fp_init(a);
-        fp_copy(b, a);
+        /* Note reversed parameter order! */
+        fp_copy(b, a); /* copy (src = b) to (dst = a) */
     }
 }
 
 /* fast math wrappers */
-int mp_copy(fp_int* a, fp_int* b)
+int mp_copy(const fp_int* a, fp_int* b)
 {
     fp_copy(a, b);
     return MP_OKAY;
@@ -2528,7 +2982,7 @@ int mp_iszero(mp_int* a)
     return fp_iszero(a);
 }
 
-int mp_count_bits (mp_int* a)
+int mp_count_bits (const mp_int* a)
 {
     return fp_count_bits(a);
 }
@@ -2550,8 +3004,7 @@ void mp_rshd (mp_int* a, int x)
 
 int mp_set_int(mp_int *a, unsigned long b)
 {
-    fp_set_int(a, b);
-    return MP_OKAY;
+    return fp_set_int(a, b);
 }
 
 int mp_is_bit_set (mp_int *a, mp_digit b)
@@ -2598,11 +3051,55 @@ int mp_sqrmod(mp_int *a, mp_int *b, mp_int *c)
 /* fast math conversion */
 int mp_montgomery_calc_normalization(mp_int *a, mp_int *b)
 {
-    fp_montgomery_calc_normalization(a, b);
-    return MP_OKAY;
+    return fp_montgomery_calc_normalization(a, b);
 }
 
-#endif /* WOLFSSL_KEYGEN || HAVE_ECC */
+#endif /* WOLFSSL_KEY_GEN || HAVE_ECC */
+
+static int fp_cond_swap_ct_ex(mp_int* a, mp_int* b, int c, int m, mp_int* t)
+{
+    int i;
+    mp_digit mask = (mp_digit)0 - m;
+
+    t->used = (a->used ^ b->used) & mask;
+    for (i = 0; i < c; i++) {
+        t->dp[i] = (a->dp[i] ^ b->dp[i]) & mask;
+    }
+    a->used ^= t->used;
+    for (i = 0; i < c; i++) {
+        a->dp[i] ^= t->dp[i];
+    }
+    b->used ^= t->used;
+    for (i = 0; i < c; i++) {
+        b->dp[i] ^= t->dp[i];
+    }
+
+    return FP_OKAY;
+}
+
+
+static int fp_cond_swap_ct(mp_int* a, mp_int* b, int c, int m)
+{
+#ifndef WOLFSSL_SMALL_STACK
+    fp_int  t[1];
+#else
+    fp_int* t;
+#endif
+
+#ifdef WOLFSSL_SMALL_STACK
+   t = (fp_int*)XMALLOC(sizeof(fp_int), NULL, DYNAMIC_TYPE_BIGINT);
+   if (t == NULL)
+       return FP_MEM;
+#endif
+
+   fp_cond_swap_ct_ex(a, b, c, m, t);
+
+#ifdef WOLFSSL_SMALL_STACK
+    XFREE(t, NULL, DYNAMIC_TYPE_BIGINT);
+#endif
+    return FP_OKAY;
+}
+
 
 
 #if defined(WOLFSSL_KEY_GEN) || defined(HAVE_COMP_KEY) || \
@@ -2719,7 +3216,13 @@ static int fp_div_d(fp_int *a, fp_digit b, fp_int *c, fp_digit *d)
      w = (w << ((fp_word)DIGIT_BIT)) | ((fp_word)a->dp[ix]);
 
      if (w >= b) {
+#ifdef WOLFSSL_LINUXKM
+        t = (fp_digit)w;
+        /* Linux kernel macro for in-place 64 bit integer division. */
+        do_div(t, b);
+#else
         t = (fp_digit)(w / b);
+#endif
         w -= ((fp_word)t) * ((fp_word)b);
       } else {
         t = 0;
@@ -2775,8 +3278,11 @@ int mp_lcm(fp_int *a, fp_int *b, fp_int *c)
     return MP_OKAY;
 }
 
-
+#if defined(FREESCALE_LTC_TFM)
+int wolfcrypt_mp_prime_is_prime(mp_int* a, int t, int* result)
+#else
 int mp_prime_is_prime(mp_int* a, int t, int* result)
+#endif
 {
     (void)t;
     *result = fp_isprime(a);
@@ -2914,9 +3420,16 @@ int fp_isprime_ex(fp_int *a, int t)
    fp_int   b;
    fp_digit d;
    int      r, res;
+   int      err;
 
    if (t <= 0 || t > FP_PRIME_SIZE) {
-     return FP_NO;
+     *result = FP_NO;
+     return FP_VAL;
+   }
+
+   if (fp_isone(a)) {
+       *result = FP_NO;
+       return FP_OKAY;
    }
 
    /* do trial division */
@@ -2944,11 +3457,13 @@ int fp_isprime(fp_int *a)
   return fp_isprime_ex(a, 8);
 }
 
-int fp_randprime(fp_int* N, int len, WC_RNG* rng, void* heap)
+int fp_randprime(fp_int* a, int len, WC_RNG* rng, void* heap)
 {
     static const int USE_BBS = 1;
     int   err, type;
     byte* buf;
+
+    (void)heap;
 
     /* get type */
     if (len < 0) {
@@ -3022,6 +3537,11 @@ void fp_gcd(fp_int *a, fp_int *b, fp_int *c)
 {
    fp_int u, v, r;
 
+   /* GCD of 0 and 0 is undefined as all integers divide 0. */
+   if (fp_iszero(a) == FP_YES && fp_iszero(b) == FP_YES) {
+       return FP_VAL;
+   }
+
    /* either zero than gcd is the largest */
    if (fp_iszero (a) == FP_YES && fp_iszero (b) == FP_NO) {
      fp_abs (b, c);
@@ -3087,16 +3607,16 @@ int mp_add_d(fp_int *a, fp_digit b, fp_int *c)
     defined(DEBUG_WOLFSSL)
 
 /* chars used in radix conversions */
-static const char* const fp_s_rmap = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                     "abcdefghijklmnopqrstuvwxyz+/";
+static wcchar fp_s_rmap = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                    "abcdefghijklmnopqrstuvwxyz+/";
 #endif
 
-#if !defined(NO_DSA) || defined(HAVE_ECC)
+#if defined(OPENSSL_EXTRA) || !defined(NO_DSA) || defined(HAVE_ECC)
 #if DIGIT_BIT == 64 || DIGIT_BIT == 32
 static int fp_read_radix_16(fp_int *a, const char *str)
 {
   int     i, j, k, neg;
-  char    ch;
+  int     ch;
 
   /* if the leading digit is a
    * minus set the sign to negative.
@@ -3111,20 +3631,18 @@ static int fp_read_radix_16(fp_int *a, const char *str)
   j = 0;
   k = 0;
   for (i = (int)(XSTRLEN(str) - 1); i >= 0; i--) {
-      ch = str[i];
-      if (ch >= '0' && ch <= '9')
-          ch -= '0';
-      else if (ch >= 'A' && ch <= 'F')
-          ch -= 'A' - 10;
-      else if (ch >= 'a' && ch <= 'f')
-          ch -= 'a' - 10;
-      else
+      ch = (int)HexCharToByte(str[i]);
+      if (ch < 0) {
+        return FP_VAL;
+      }
+
+      k += j == DIGIT_BIT;
+      j &= DIGIT_BIT - 1;
+      if (k >= FP_SIZE)
           return FP_VAL;
 
       a->dp[k] |= ((fp_digit)ch) << j;
       j += 4;
-      k += j == DIGIT_BIT;
-      j &= DIGIT_BIT - 1;
   }
 
   a->used = k + 1;
@@ -3177,14 +3695,21 @@ static int fp_read_radix(fp_int *a, const char *str, int radix)
          break;
       }
     }
+    if (y >= radix) {
+      return FP_VAL;
+    }
 
     /* if the char was found in the map
      * and is less than the given radix add it
      * to the number, otherwise exit the loop.
      */
     if (y < radix) {
-      fp_mul_d (a, (fp_digit) radix, a);
-      fp_add_d (a, (fp_digit) y, a);
+      int ret = fp_mul_d (a, (fp_digit) radix, a);
+      if (ret != FP_OKAY)
+        return ret;
+      ret = fp_add_d (a, (fp_digit) y, a);
+      if (ret != FP_OKAY)
+        return ret;
     } else {
       break;
     }
@@ -3222,6 +3747,11 @@ int mp_montgomery_reduce(fp_int *a, fp_int *m, fp_digit mp)
     return MP_OKAY;
 }
 
+int mp_montgomery_reduce_ex(fp_int *a, fp_int *m, fp_digit mp, int ct)
+{
+    return fp_montgomery_reduce_ex(a, m, mp, ct);
+}
+
 
 /* fast math conversion */
 int mp_montgomery_setup(fp_int *a, fp_digit *rho)
@@ -3235,11 +3765,10 @@ int mp_div_2(fp_int * a, fp_int * b)
     return MP_OKAY;
 }
 
-
-int mp_init_copy(fp_int * a, fp_int * b)
+/* c = a / 2 (mod b) - constant time (a < b and positive) */
+int mp_div_2_mod_ct(mp_int *a, mp_int *b, mp_int *c)
 {
-    fp_init_copy(a, b);
-    return MP_OKAY;
+  return fp_div_2_mod_ct(a, b, c);
 }
 
 #ifdef HAVE_COMP_KEY
@@ -3276,8 +3805,11 @@ int mp_radix_size (mp_int *a, int radix, int *size)
 
     /* special case for binary */
     if (radix == 2) {
-        *size = fp_count_bits (a) + (a->sign == FP_NEG ? 1 : 0) + 1;
-        return FP_YES;
+        *size = fp_count_bits(a);
+        if (*size == 0)
+          *size = 1;
+        *size += (a->sign == FP_NEG ? 1 : 0) + 1; /* "-" sign + null term */
+        return FP_OKAY;
     }
 
     /* make sure the radix is in range */
@@ -3375,10 +3907,12 @@ int mp_toradix (mp_int *a, char *str, int radix)
 void mp_dump(const char* desc, mp_int* a, byte verbose)
 {
   char buffer[FP_SIZE * sizeof(fp_digit) * 2];
-  int size = FP_SIZE;
+  int size;
 
 #if defined(ALT_ECC_SIZE) || defined(HAVE_WOLF_BIGINT)
   size = a->size;
+#else
+  size = FP_SIZE;
 #endif
 
   printf("%s: ptr=%p, used=%d, sign=%d, size=%d, fpd=%d\n",
@@ -3402,15 +3936,26 @@ void mp_dump(const char* desc, mp_int* a, byte verbose)
 
 int mp_abs(mp_int* a, mp_int* b)
 {
-    fp_abs(a, b);
-    return FP_OKAY;
+  fp_abs(a, b);
+  return FP_OKAY;
 }
 
 
 int mp_lshd (mp_int * a, int b)
 {
-    fp_lshd(a, b);
-    return FP_OKAY;
+  return fp_lshd(a, b);
 }
+
+#ifdef WOLFSSL_CHECK_MEM_ZERO
+void mp_memzero_add(const char* name, mp_int* a)
+{
+    wc_MemZero_Add(name, a->dp, sizeof(a->dp));
+}
+
+void mp_memzero_check(mp_int* a)
+{
+    wc_MemZero_Check(a->dp, sizeof(a->dp));
+}
+#endif /* WOLFSSL_CHECK_MEM_ZERO */
 
 #endif /* USE_FAST_MATH */

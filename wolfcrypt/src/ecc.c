@@ -8485,4 +8485,28 @@ int wc_X963_KDF(enum wc_HashType type, const byte* secret, word32 secretSz,
 }
 #endif /* HAVE_X963_KDF */
 
+/* 3.14.2a (2024) updates for ACVP testing */
+int wc_ecc_set_rng(ecc_key* key, WC_RNG* rng)
+{
+    int err = 0;
+
+#ifdef ECC_TIMING_RESISTANT
+    if (key == NULL) {
+        err = BAD_FUNC_ARG;
+    }
+    else {
+        key->rng = rng;
+    }
+#else
+    (void)key;
+    (void)rng;
+    /* report success, not an error if ECC_TIMING_RESISTANT is not defined */
+#endif
+
+    return err;
+}
+
+
+/* END 3.14.2a (2024) updates*/
+
 #endif /* HAVE_ECC */

@@ -231,7 +231,8 @@ void mp_forcezero(mp_int * a)
 
 
 /* get the size for an unsigned equivalent */
-int mp_unsigned_bin_size (mp_int * a)
+/* 3.14.2a (2024) change to const input */
+int mp_unsigned_bin_size (const mp_int * a)
 {
   int     size = mp_count_bits (a);
   return (size / 8 + ((size & 7) != 0 ? 1 : 0));
@@ -239,7 +240,8 @@ int mp_unsigned_bin_size (mp_int * a)
 
 
 /* returns the number of bits in an int */
-int mp_count_bits (mp_int * a)
+/* 3.14.2a (2024) change to const input */
+int mp_count_bits (const mp_int * a)
 {
   int     r;
   mp_digit q;
