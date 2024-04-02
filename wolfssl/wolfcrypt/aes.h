@@ -42,6 +42,12 @@
 #endif
 #endif
 
+/* 3.14.2a (2024) update, include random.h header */
+#ifndef WC_NO_RNG
+    #include <wolfssl/wolfcrypt/random.h>
+#endif
+
+
 #ifndef HAVE_FIPS /* to avoid redefinition of macros */
 
 #ifdef WOLFSSL_AESNI
@@ -73,7 +79,15 @@ enum {
     AES_ENCRYPTION = 0,
     AES_DECRYPTION = 1,
     KEYWRAP_BLOCK_SIZE = 8,
-    AES_BLOCK_SIZE = 16
+    AES_BLOCK_SIZE = 16,
+    /* 3.14.2a (2024) updates */
+    GCM_NONCE_MAX_SZ = 16, /* wolfCrypt's maximum nonce size allowed. */
+    GCM_NONCE_MID_SZ = 12, /* The default nonce size for AES-GCM. */
+    GCM_NONCE_MIN_SZ = 8,  /* wolfCrypt's minimum nonce size allowed. */
+    CCM_NONCE_MIN_SZ = 7,
+    CCM_NONCE_MAX_SZ = 13,
+    CTR_SZ   = 4,
+    AES_IV_FIXED_SZ = 4,
 };
 
 
@@ -86,6 +100,11 @@ typedef struct Aes {
     ALIGN16 word32 reg[AES_BLOCK_SIZE / sizeof(word32)];      /* for CBC mode */
     ALIGN16 word32 tmp[AES_BLOCK_SIZE / sizeof(word32)];      /* same         */
 
+/* 3.14.2a (2024) updates, new struct elements */
+#if defined(HAVE_AESGCM) || defined(HAVE_AESCCM)
+    word32 invokeCtr[2];
+    word32 nonceSz;
+#endif
 #ifdef HAVE_AESGCM
     ALIGN16 byte H[AES_BLOCK_SIZE];
 #ifdef GCM_TABLE
@@ -193,6 +212,19 @@ WOLFSSL_API int wc_AesEcbDecrypt(Aes* aes, byte* out,
                                    const byte* iv, word32 ivSz,
                                    const byte* authTag, word32 authTagSz,
                                    const byte* authIn, word32 authInSz);
+/* 3.14.2a (2024) updates, new APIs */
+#ifndef WC_NO_RNG
+ WOLFSSL_API int  wc_AesGcmSetExtIV(Aes* aes, const byte* iv, word32 ivSz);
+ WOLFSSL_API int  wc_AesGcmSetIV(Aes* aes, word32 ivSz,
+                                   const byte* ivFixed, word32 ivFixedSz,
+                                   WC_RNG* rng);
+ WOLFSSL_API int  wc_AesGcmEncrypt_ex(Aes* aes, byte* out,
+                                   const byte* in, word32 sz,
+                                   byte* ivOut, word32 ivOutSz,
+                                   byte* authTag, word32 authTagSz,
+                                   const byte* authIn, word32 authInSz);
+#endif /* WC_NO_RNG */
+/* END 3.14.2a (2024) updates */
 
  WOLFSSL_API int wc_GmacSetKey(Gmac* gmac, const byte* key, word32 len);
  WOLFSSL_API int wc_GmacUpdate(Gmac* gmac, const byte* iv, word32 ivSz,
@@ -200,6 +232,17 @@ WOLFSSL_API int wc_AesEcbDecrypt(Aes* aes, byte* out,
                                byte* authTag, word32 authTagSz);
  WOLFSSL_LOCAL void GHASH(Aes* aes, const byte* a, word32 aSz, const byte* c,
                                word32 cSz, byte* s, word32 sSz);
+/* 3.14.2a (2024) updates, new APIs */
+#ifndef WC_NO_RNG
+ WOLFSSL_API int wc_Gmac(const byte* key, word32 keySz, byte* iv, word32 ivSz,
+                               const byte* authIn, word32 authInSz,
+                               byte* authTag, word32 authTagSz, WC_RNG* rng);
+ WOLFSSL_API int wc_GmacVerify(const byte* key, word32 keySz,
+                               const byte* iv, word32 ivSz,
+                               const byte* authIn, word32 authInSz,
+                               const byte* authTag, word32 authTagSz);
+#endif /* WC_NO_RNG */
+/* END 3.14.2a (2024) updates */
 #endif /* HAVE_AESGCM */
 #ifdef HAVE_AESCCM
  WOLFSSL_API int  wc_AesCcmSetKey(Aes* aes, const byte* key, word32 keySz);
@@ -213,6 +256,15 @@ WOLFSSL_API int wc_AesEcbDecrypt(Aes* aes, byte* out,
                                    const byte* nonce, word32 nonceSz,
                                    const byte* authTag, word32 authTagSz,
                                    const byte* authIn, word32 authInSz);
+/* 3.14.2a (2024) updates, new APIs */
+ WOLFSSL_API int  wc_AesCcmSetNonce(Aes* aes,
+                                   const byte* nonce, word32 nonceSz);
+ WOLFSSL_API int  wc_AesCcmEncrypt_ex(Aes* aes, byte* out,
+                                   const byte* in, word32 sz,
+                                   byte* ivOut, word32 ivOutSz,
+                                   byte* authTag, word32 authTagSz,
+                                   const byte* authIn, word32 authInSz);
+/* END 3.14.2a (2024) updates */
 #endif /* HAVE_AESCCM */
 #ifdef HAVE_AES_KEYWRAP
  WOLFSSL_API int  wc_AesKeyWrap(const byte* key, word32 keySz,

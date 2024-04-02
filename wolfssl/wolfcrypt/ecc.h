@@ -320,6 +320,9 @@ struct ecc_key {
         CertSignCtx certSignCtx; /* context info for cert sign (MakeSignature) */
     #endif
 #endif /* WOLFSSL_ASYNC_CRYPT */
+#ifdef ECC_TIMING_RESISTANT
+    WC_RNG* rng;
+#endif
 };
 
 #ifndef WC_ECCKEY_TYPE_DEFINED
@@ -607,6 +610,11 @@ WOLFSSL_API int wc_ecc_curve_cache_init(void);
 WOLFSSL_API void wc_ecc_curve_cache_free(void);
 #endif
 
+
+/* 3.14.2a (2024) updates for ACVP testing */
+WOLFSSL_API
+int wc_ecc_set_rng(ecc_key* key, WC_RNG* rng);
+/* END 3.14.2a (2024) updates */
 
 #ifdef __cplusplus
     }    /* extern "C" */

@@ -33,8 +33,15 @@
 #include <wolfssl/wolfcrypt/dh.h>
 #include <wolfssl/wolfcrypt/asn.h>
 
-#define USE_CERT_BUFFERS_256
-#define USE_CERT_BUFFERS_2048
+/* 3.14.2a (2024) if one wants to use wolfcrypt/test/test.c with buffers these
+ * forceful defines result in a redefinition error at build time. These should
+ * be checked and only set if not already defined elsewhere */
+#ifndef USE_CERT_BUFFERS_256
+    #define USE_CERT_BUFFERS_256
+#endif
+#ifndef USE_CERT_BUFFERS_2048
+    #define USE_CERT_BUFFERS_2048
+#endif
 #include <wolfssl/certs_test.h>   /* rsa 2048 bit key */
 
 

@@ -51,9 +51,18 @@
             typedef unsigned long  word32;
         #else
             typedef unsigned short word16;
+            typedef          int   sword32; /* 3.14.2a (2024) new type dec */
             typedef unsigned int   word32;
         #endif
         typedef byte           word24[3];
+    #endif
+
+
+    /* constant pointer to a constant char */
+    #ifdef WOLFSSL_NO_CONSTCHARCONST
+        typedef const char*       wcchar;
+    #else
+        typedef const char* const wcchar;
     #endif
 
 
@@ -131,6 +140,18 @@
                              mp_digit, no 64 bit type so make mp_digit 16 bit */
 #endif
 
+/* 3.14.2a (2024) update, new type declaration */
+#ifdef WC_PTR_TYPE /* Allow user supplied type */
+    typedef WC_PTR_TYPE wc_ptr_t;
+#elif defined(HAVE_UINTPTR_T)
+    #include <stdint.h>
+    typedef uintptr_t wc_ptr_t;
+#else /* fallback to architecture size_t for pointer size */
+    #include <stddef.h> /* included for getting size_t type */
+    typedef size_t wc_ptr_t;
+#endif
+
+
     enum {
         WOLFSSL_WORD_SIZE  = sizeof(wolfssl_word),
         WOLFSSL_BIT_SIZE   = 8,
@@ -138,6 +159,16 @@
     };
 
     #define WOLFSSL_MAX_16BIT 0xffffU
+
+    #ifndef WARN_UNUSED_RESULT
+        #if defined(WOLFSSL_LINUXKM) && defined(__must_check)
+            #define WARN_UNUSED_RESULT __must_check
+        #elif defined(__GNUC__) && (__GNUC__ >= 4)
+            #define WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+        #else
+            #define WARN_UNUSED_RESULT
+        #endif
+    #endif /* WARN_UNUSED_RESULT */
 
     /* use inlining if compiler allows */
     #ifndef WC_INLINE

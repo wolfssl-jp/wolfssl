@@ -54,6 +54,7 @@ typedef struct DhKey {
 #ifdef WOLFSSL_ASYNC_CRYPT
     WC_ASYNC_DEV asyncDev;
 #endif
+    int trustedGroup;
 } DhKey;
 
 
@@ -94,6 +95,28 @@ WOLFSSL_API int wc_DhParamsLoad(const byte* input, word32 inSz, byte* p,
 WOLFSSL_API int wc_DhCheckPubKey(DhKey* key, const byte* pub, word32 pubSz);
 WOLFSSL_API int wc_DhCheckPubKey_ex(DhKey* key, const byte* pub, word32 pubSz,
                             const byte* prime, word32 primeSz);
+
+/* 3.14.2a (2024) updates for ACVP testing */
+enum {
+    WC_FFDHE_2048 = 256,
+    WC_FFDHE_3072 = 257,
+    WC_FFDHE_4096 = 258,
+    WC_FFDHE_6144 = 259,
+    WC_FFDHE_8192 = 260
+};
+
+WOLFSSL_API int wc_DhSetCheckKey(DhKey* key, const byte* p, word32 pSz,
+                        const byte* g, word32 gSz, const byte* q, word32 qSz,
+                        int trusted, WC_RNG* rng);
+WOLFSSL_API int wc_DhGetNamedKeyParamSize(int name,
+        word32* p, word32* g, word32* q);
+WOLFSSL_API word32 wc_DhGetNamedKeyMinSize(int name);
+WOLFSSL_API int wc_DhSetNamedKey(DhKey* key, int name);
+WOLFSSL_API int wc_DhGenerateParams(WC_RNG *rng, int modSz, DhKey *dh);
+WOLFSSL_API int wc_DhExportParamsRaw(DhKey* dh, byte* p, word32* pSz,
+                       byte* q, word32* qSz, byte* g, word32* gSz);
+
+/* End 3.14.2a (2024) updates */
 
 #ifdef __cplusplus
     } /* extern "C" */

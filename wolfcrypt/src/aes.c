@@ -3337,10 +3337,7 @@ int wc_AesSetIV(Aes* aes, const byte* iv)
 
 #endif
 
-enum {
-    NONCE_SZ = 12,
-    CTR_SZ   = 4
-};
+/* 3.14.2a (2024) move enum from here to header */
 
 #if !defined(FREESCALE_LTC_AES_GCM)
 static INLINE void IncrementGcmCounter(byte* inOutCtr)
@@ -3444,6 +3441,10 @@ int wc_AesGcmSetKey(Aes* aes, const byte* key, word32 len)
 
     if (!((len == 16) || (len == 24) || (len == 32)))
         return BAD_FUNC_ARG;
+    /* 3.14.2a (2024) sanity check added */
+    if (aes == NULL) {
+        return BAD_FUNC_ARG;
+    }
 
     XMEMSET(iv, 0, AES_BLOCK_SIZE);
     ret = wc_AesSetKey(aes, key, len, iv, AES_ENCRYPTION);
@@ -7436,7 +7437,7 @@ int AES_GCM_encrypt_C(Aes* aes, byte* out, const byte* in, word32 sz,
 
     ctr = counter;
     XMEMSET(initialCounter, 0, AES_BLOCK_SIZE);
-    if (ivSz == NONCE_SZ) {
+    if (ivSz == GCM_NONCE_MID_SZ) {
         XMEMCPY(initialCounter, iv, ivSz);
         initialCounter[AES_BLOCK_SIZE - 1] = 1;
     }
@@ -7798,7 +7799,7 @@ int AES_GCM_decrypt_C(Aes* aes, byte* out, const byte* in, word32 sz,
     ctr = counter;
 
     XMEMSET(initialCounter, 0, AES_BLOCK_SIZE);
-    if (ivSz == NONCE_SZ) {
+    if (ivSz == GCM_NONCE_MID_SZ) {
         XMEMCPY(initialCounter, iv, ivSz);
         initialCounter[AES_BLOCK_SIZE - 1] = 1;
     }
@@ -7880,8 +7881,13 @@ int wc_AesGcmDecrypt(Aes* aes, byte* out, const byte* in, word32 sz,
 #endif
 
     /* argument checks */
-    if (aes == NULL || out == NULL || in == NULL || iv == NULL ||
-        authTag == NULL || authTagSz > AES_BLOCK_SIZE) {
+    /* 3.14.2a (2024) update: If the sz is non-zero, both in and out must be
+     * set. If sz is 0,
+     * in and out are don't cares, as this is just the GMAC case. */
+    if (aes == NULL || iv == NULL || (sz != 0 && (in == NULL || out == NULL)) ||
+        authTag == NULL || authTagSz > AES_BLOCK_SIZE || authTagSz == 0 ||
+        ivSz == 0) {
+printf("KH: returning here\n");
         return BAD_FUNC_ARG;
     }
 
@@ -9124,6 +9130,293 @@ int wc_AesXtsDecrypt(XtsAes* xaes, byte* out, const byte* in, word32 sz,
 }
 
 #endif /* WOLFSSL_AES_XTS */
+
+/* 3.14.2a (2024) new APIs */
+#if (defined(HAVE_AESGCM) && !defined(WC_NO_RNG)) || defined(HAVE_AESCCM)
+static WC_INLINE void IncCtr(byte* ctr, word32 ctrSz)
+{
+    int i;
+    for (i = (int)ctrSz - 1; i >= 0; i--) {
+        if (++ctr[i])
+            break;
+    }
+}
+#endif /* HAVE_AESGCM || HAVE_AESCCM */
+
+/* abstract functions that call lower level AESCCM functions */
+#ifndef WC_NO_RNG
+
+int wc_AesCcmSetNonce(Aes* aes, const byte* nonce, word32 nonceSz)
+{
+    int ret = 0;
+
+    if (aes == NULL || nonce == NULL ||
+        nonceSz < CCM_NONCE_MIN_SZ || nonceSz > CCM_NONCE_MAX_SZ) {
+
+        ret = BAD_FUNC_ARG;
+    }
+
+    if (ret == 0) {
+        XMEMCPY(aes->reg, nonce, nonceSz);
+        aes->nonceSz = nonceSz;
+
+        /* Invocation counter should be 2^61 */
+        aes->invokeCtr[0] = 0;
+        aes->invokeCtr[1] = 0xE0000000;
+    }
+
+    return ret;
+}
+
+
+int wc_AesCcmEncrypt_ex(Aes* aes, byte* out, const byte* in, word32 sz,
+                        byte* ivOut, word32 ivOutSz,
+                        byte* authTag, word32 authTagSz,
+                        const byte* authIn, word32 authInSz)
+{
+    int ret = 0;
+
+    if (aes == NULL || out == NULL ||
+        (in == NULL && sz != 0) ||
+        ivOut == NULL ||
+        (authIn == NULL && authInSz != 0) ||
+        (ivOutSz != aes->nonceSz)) {
+
+        ret = BAD_FUNC_ARG;
+    }
+
+    if (ret == 0) {
+        aes->invokeCtr[0]++;
+        if (aes->invokeCtr[0] == 0) {
+            aes->invokeCtr[1]++;
+            if (aes->invokeCtr[1] == 0)
+                ret = AES_CCM_OVERFLOW_E;
+        }
+    }
+
+    if (ret == 0) {
+        ret = wc_AesCcmEncrypt(aes, out, in, sz,
+                               (byte*)aes->reg, aes->nonceSz,
+                               authTag, authTagSz,
+                               authIn, authInSz);
+        if (ret == 0) {
+            XMEMCPY(ivOut, aes->reg, aes->nonceSz);
+            IncCtr((byte*)aes->reg, aes->nonceSz);
+        }
+    }
+
+    return ret;
+}
+
+#endif /* WC_NO_RNG */
+
+/* Common to all, abstract functions that build off of lower level AESGCM
+ * functions */
+#ifndef WC_NO_RNG
+
+static WARN_UNUSED_RESULT WC_INLINE int CheckAesGcmIvSize(int ivSz) {
+    return (ivSz == GCM_NONCE_MIN_SZ ||
+            ivSz == GCM_NONCE_MID_SZ ||
+            ivSz == GCM_NONCE_MAX_SZ);
+}
+
+
+int wc_AesGcmSetExtIV(Aes* aes, const byte* iv, word32 ivSz)
+{
+    int ret = 0;
+
+    if (aes == NULL || iv == NULL || !CheckAesGcmIvSize((int)ivSz)) {
+        ret = BAD_FUNC_ARG;
+    }
+
+    if (ret == 0) {
+        XMEMCPY((byte*)aes->reg, iv, ivSz);
+
+        /* If the IV is 96, allow for a 2^64 invocation counter.
+         * For any other size for the nonce, limit the invocation
+         * counter to 32-bits. (SP 800-38D 8.3) */
+        aes->invokeCtr[0] = 0;
+        aes->invokeCtr[1] = (ivSz == GCM_NONCE_MID_SZ) ? 0 : 0xFFFFFFFF;
+    #ifdef WOLFSSL_AESGCM_STREAM
+        aes->ctrSet = 1;
+    #endif
+        aes->nonceSz = ivSz;
+    }
+
+    return ret;
+}
+
+
+int wc_AesGcmSetIV(Aes* aes, word32 ivSz,
+                   const byte* ivFixed, word32 ivFixedSz,
+                   WC_RNG* rng)
+{
+    int ret = 0;
+
+    if (aes == NULL || rng == NULL || !CheckAesGcmIvSize((int)ivSz) ||
+        (ivFixed == NULL && ivFixedSz != 0) ||
+        (ivFixed != NULL && ivFixedSz != AES_IV_FIXED_SZ)) {
+
+        ret = BAD_FUNC_ARG;
+    }
+
+    if (ret == 0) {
+        byte* iv = (byte*)aes->reg;
+
+        if (ivFixedSz)
+            XMEMCPY(iv, ivFixed, ivFixedSz);
+
+        ret = wc_RNG_GenerateBlock(rng, iv + ivFixedSz, ivSz - ivFixedSz);
+    }
+
+    if (ret == 0) {
+        /* If the IV is 96, allow for a 2^64 invocation counter.
+         * For any other size for the nonce, limit the invocation
+         * counter to 32-bits. (SP 800-38D 8.3) */
+        aes->invokeCtr[0] = 0;
+        aes->invokeCtr[1] = (ivSz == GCM_NONCE_MID_SZ) ? 0 : 0xFFFFFFFF;
+    #ifdef WOLFSSL_AESGCM_STREAM
+        aes->ctrSet = 1;
+    #endif
+        aes->nonceSz = ivSz;
+    }
+
+    return ret;
+}
+
+
+int wc_AesGcmEncrypt_ex(Aes* aes, byte* out, const byte* in, word32 sz,
+                        byte* ivOut, word32 ivOutSz,
+                        byte* authTag, word32 authTagSz,
+                        const byte* authIn, word32 authInSz)
+{
+    int ret = 0;
+
+    if (aes == NULL || (sz != 0 && (in == NULL || out == NULL)) ||
+        ivOut == NULL || ivOutSz != aes->nonceSz ||
+        (authIn == NULL && authInSz != 0)) {
+
+        ret = BAD_FUNC_ARG;
+    }
+
+    if (ret == 0) {
+        aes->invokeCtr[0]++;
+        if (aes->invokeCtr[0] == 0) {
+            aes->invokeCtr[1]++;
+            if (aes->invokeCtr[1] == 0)
+                ret = AES_GCM_OVERFLOW_E;
+        }
+    }
+
+    if (ret == 0) {
+        XMEMCPY(ivOut, aes->reg, ivOutSz);
+        ret = wc_AesGcmEncrypt(aes, out, in, sz,
+                               (byte*)aes->reg, ivOutSz,
+                               authTag, authTagSz,
+                               authIn, authInSz);
+        if (ret == 0)
+            IncCtr((byte*)aes->reg, ivOutSz);
+    }
+
+    return ret;
+}
+
+int wc_Gmac(const byte* key, word32 keySz, byte* iv, word32 ivSz,
+            const byte* authIn, word32 authInSz,
+            byte* authTag, word32 authTagSz, WC_RNG* rng)
+{
+#ifdef WOLFSSL_SMALL_STACK
+    Aes *aes = NULL;
+#else
+    Aes aes[1];
+#endif
+    int ret;
+
+    if (key == NULL || iv == NULL || (authIn == NULL && authInSz != 0) ||
+        authTag == NULL || authTagSz == 0 || rng == NULL) {
+
+        return BAD_FUNC_ARG;
+    }
+
+#ifdef WOLFSSL_SMALL_STACK
+    if ((aes = (Aes *)XMALLOC(sizeof *aes, NULL,
+                              DYNAMIC_TYPE_AES)) == NULL)
+        return MEMORY_E;
+#endif
+
+    ret = wc_AesInit(aes, NULL, INVALID_DEVID);
+    if (ret == 0) {
+        ret = wc_AesGcmSetKey(aes, key, keySz);
+        if (ret == 0)
+            ret = wc_AesGcmSetIV(aes, ivSz, NULL, 0, rng);
+        if (ret == 0)
+            ret = wc_AesGcmEncrypt_ex(aes, NULL, NULL, 0, iv, ivSz,
+                                  authTag, authTagSz, authIn, authInSz);
+        wc_AesFree(aes);
+    }
+    ForceZero(aes, sizeof *aes);
+#ifdef WOLFSSL_SMALL_STACK
+    XFREE(aes, NULL, DYNAMIC_TYPE_AES);
+#endif
+
+    return ret;
+}
+
+int wc_GmacVerify(const byte* key, word32 keySz,
+                  const byte* iv, word32 ivSz,
+                  const byte* authIn, word32 authInSz,
+                  const byte* authTag, word32 authTagSz)
+{
+    int ret;
+#ifdef HAVE_AES_DECRYPT
+#ifdef WOLFSSL_SMALL_STACK
+    Aes *aes = NULL;
+#else
+    Aes aes[1];
+#endif
+
+    if (key == NULL || iv == NULL || (authIn == NULL && authInSz != 0) ||
+        authTag == NULL || authTagSz == 0 || authTagSz > AES_BLOCK_SIZE) {
+
+        return BAD_FUNC_ARG;
+    }
+
+#ifdef WOLFSSL_SMALL_STACK
+    if ((aes = (Aes *)XMALLOC(sizeof *aes, NULL,
+                              DYNAMIC_TYPE_AES)) == NULL)
+        return MEMORY_E;
+#endif
+
+    ret = wc_AesInit(aes, NULL, INVALID_DEVID);
+    if (ret == 0) {
+        ret = wc_AesGcmSetKey(aes, key, keySz);
+        if (ret == 0)
+            ret = wc_AesGcmDecrypt(aes, NULL, NULL, 0, iv, ivSz,
+                                  authTag, authTagSz, authIn, authInSz);
+        wc_AesFree(aes);
+    }
+    ForceZero(aes, sizeof *aes);
+#ifdef WOLFSSL_SMALL_STACK
+    XFREE(aes, NULL, DYNAMIC_TYPE_AES);
+#endif
+#else
+    (void)key;
+    (void)keySz;
+    (void)iv;
+    (void)ivSz;
+    (void)authIn;
+    (void)authInSz;
+    (void)authTag;
+    (void)authTagSz;
+    ret = NOT_COMPILED_IN;
+#endif
+    return ret;
+}
+
+#endif /* WC_NO_RNG */
+
+
+/* END 3.14.2a (2024) updates */
 
 #endif /* HAVE_FIPS */
 #endif /* !NO_AES */

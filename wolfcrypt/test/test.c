@@ -24,6 +24,7 @@
     #include <config.h>
 #endif
 
+#include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/settings.h>
 #include <wolfssl/version.h>
 
@@ -7476,7 +7477,8 @@ int aesgcm_test(void)
 #endif /* BENCH_AESGCM_LARGE */
 #if defined(ENABLE_NON_12BYTE_IV_TEST) && defined(WOLFSSL_AES_256)
     /* Variable IV length test */
-    for (ivlen=0; ivlen<(int)sizeof(k1); ivlen++) {
+    /* 3.14.2a (2024) update: Iv length of zero not supported nor safe */
+    for (ivlen=1; ivlen<(int)sizeof(k1); ivlen++) {
          /* AES-GCM encrypt and decrypt both use AES encrypt internally */
          result = wc_AesGcmEncrypt(&enc, resultC, p, sizeof(p), k1,
                          (word32)ivlen, resultT, sizeof(resultT), a, sizeof(a));
@@ -7491,6 +7493,7 @@ int aesgcm_test(void)
 #if defined(WOLFSSL_ASYNC_CRYPT)
         result = wc_AsyncWait(result, &dec.asyncDev, WC_ASYNC_FLAG_NONE);
 #endif
+        printf("KH: result = %d\n", result);
         if (result != 0)
             return -5711;
 #endif /* HAVE_AES_DECRYPT */
@@ -10523,7 +10526,7 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
 
 #ifdef HAVE_SELFTEST
             ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz,
-                                         hash[j], -1);
+                                         hash[j], -1, wc_RsaEncryptSize(key)*8);
 #else
             ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz,
                                          hash[j], -1, wc_RsaEncryptSize(key)*8);
@@ -10598,7 +10601,7 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
         if (ret >= 0) {
 #ifdef HAVE_SELFTEST
             ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, sig, plainSz,
-                hash[0], 0);
+                hash[0], 0, 0);
 #else
             ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, sig, plainSz,
                 hash[0], 0, 0);
@@ -10627,7 +10630,7 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
 
 #ifdef HAVE_SELFTEST
     ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
-                                    0);
+                                    0, 0);
 #else
     ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
                                     0, 0);
@@ -10695,7 +10698,7 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
 
 #ifdef HAVE_SELFTEST
     ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
-                                    -2);
+                                    -2, 0);
 #else
     ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
                                     -2, 0);
@@ -10704,7 +10707,7 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
         ERROR_OUT(-6831, exit_rsa_pss);
 #ifdef HAVE_SELFTEST
     ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
-                                    digestSz + 1);
+                                    digestSz + 1, 0);
 #else
     ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
                                     digestSz + 1, 0);

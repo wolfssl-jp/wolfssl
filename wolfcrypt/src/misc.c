@@ -178,6 +178,69 @@ WC_STATIC WC_INLINE void XorWords(wolfssl_word* r, const wolfssl_word* a, word32
 
     for (i = 0; i < n; i++) r[i] ^= a[i];
 }
+/* 3.14.2a (2024) update, added API */
+/* This routine performs a bitwise XOR operation of <*r> and <*a> for <n> number
+of wolfssl_words, placing the result in <*r>. */
+WC_MISC_STATIC WC_INLINE void XorWordsOut(wolfssl_word** r,
+                       const wolfssl_word** a, const wolfssl_word** b, word32 n)
+{
+    word32 i;
+
+    for (i = 0; i < n; i++)
+        *((*r)++) = *((*a)++) ^ *((*b)++);
+}
+
+/* 3.14.2a (2024) update, added API */
+/* This routine performs a bitwise XOR operation of <*buf> and <*mask> of n
+counts, placing the result in <*buf>. */
+
+WC_MISC_STATIC WC_INLINE void xorbufout(void* out, const void* buf,
+                                        const void* mask, word32 count)
+{
+    word32      i;
+    byte*       o;
+    const byte* b;
+    const byte* m;
+
+    o = (byte*)out;
+    b = (const byte*)buf;
+    m = (const byte*)mask;
+
+
+    if (((wc_ptr_t)o) % WOLFSSL_WORD_SIZE ==
+            ((wc_ptr_t)b) % WOLFSSL_WORD_SIZE &&
+            ((wc_ptr_t)b) % WOLFSSL_WORD_SIZE ==
+                        ((wc_ptr_t)m) % WOLFSSL_WORD_SIZE) {
+        /* type-punning helpers */
+        union {
+            byte* bp;
+            wolfssl_word* wp;
+        } tpo;
+        union {
+            const byte* bp;
+            const wolfssl_word* wp;
+        } tpb, tpm;
+        /* Alignment checks out. Possible to XOR words. */
+        /* Move alignment so that it lines up with a
+         * WOLFSSL_WORD_SIZE boundary */
+        while (((wc_ptr_t)b) % WOLFSSL_WORD_SIZE != 0 && count > 0) {
+            *(o++) = (byte)(*(b++) ^ *(m++));
+            count--;
+        }
+        tpo.bp = o;
+        tpb.bp = b;
+        tpm.bp = m;
+        XorWordsOut( &tpo.wp, &tpb.wp, &tpm.wp, count / WOLFSSL_WORD_SIZE);
+        o = tpo.bp;
+        b = tpb.bp;
+        m = tpm.bp;
+        count %= WOLFSSL_WORD_SIZE;
+    }
+
+    for (i = 0; i < count; i++)
+        o[i] = (byte)(b[i] ^ m[i]);
+}
+
 
 
 WC_STATIC WC_INLINE void xorbuf(void* buf, const void* mask, word32 count)
@@ -317,6 +380,21 @@ WC_STATIC WC_INLINE word32 btoi(byte b)
     return (word32)(b - 0x30);
 }
 #endif
+
+WC_MISC_STATIC WC_INLINE signed char HexCharToByte(char ch)
+{
+    signed char ret = (signed char)ch;
+    if (ret >= '0' && ret <= '9')
+        ret -= '0';
+    else if (ret >= 'A' && ret <= 'F')
+        ret -= 'A' - 10;
+    else if (ret >= 'a' && ret <= 'f')
+        ret -= 'a' - 10;
+    else
+        ret = -1; /* error case - return code must be signed */
+    return ret;
+}
+
 
 
 #ifndef WOLFSSL_NO_CT_OPS
