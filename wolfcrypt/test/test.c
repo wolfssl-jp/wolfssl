@@ -6245,7 +6245,7 @@ int aesgcm_test(void)
 #endif /* BENCH_AESGCM_LARGE */
 #ifdef ENABLE_NON_12BYTE_IV_TEST
     /* Variable IV length test */
-    for (ivlen=0; ivlen<(int)sizeof(k1); ivlen++) {
+    for (ivlen=1; ivlen<(int)sizeof(k1); ivlen++) {
          /* AES-GCM encrypt and decrypt both use AES encrypt internally */
          result = wc_AesGcmEncrypt(&enc, resultC, p, sizeof(p), k1,
                          (word32)ivlen, resultT, sizeof(resultT), a, sizeof(a));

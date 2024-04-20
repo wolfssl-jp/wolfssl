@@ -1,22 +1,12 @@
 /* tfm.h
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2024 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * https://www.wolfssl.com
  */
 
 
@@ -36,6 +26,8 @@
     \file wolfssl/wolfcrypt/tfm.h
 */
 
+/* 3.14.2a (2024) after much ado (25 hours) did a complete (entire file) update
+ * to get all CAVP tests passing */
 #ifndef WOLF_CRYPT_TFM_H
 #define WOLF_CRYPT_TFM_H
 
@@ -46,25 +38,8 @@
 
 #include <wolfssl/wolfcrypt/random.h>
 
-/* wolf big int and common functions */
-#include <wolfssl/wolfcrypt/wolfmath.h>
-
 #ifdef __cplusplus
     extern "C" {
-#endif
-
-#ifdef WOLFSSL_PUBLIC_MP
-    #define MP_API   WOLFSSL_API
-#else
-    #define MP_API
-#endif
-
-#ifndef MIN
-   #define MIN(x,y) ((x)<(y)?(x):(y))
-#endif
-
-#ifndef MAX
-   #define MAX(x,y) ((x)>(y)?(x):(y))
 #endif
 
 #ifdef WOLFSSL_NO_ASM
@@ -72,7 +47,12 @@
    #define TFM_NO_ASM
 #endif
 
-#ifndef NO_64BIT
+#ifdef NO_64BIT
+   #undef  NO_TFM_64BIT
+   #define NO_TFM_64BIT
+#endif
+
+#ifndef NO_TFM_64BIT
 /* autodetect x86-64 and make sure we are using 64-bit digits with x86-64 asm */
 #if defined(__x86_64__)
    #if defined(TFM_X86) || defined(TFM_SSE2) || defined(TFM_ARM)
@@ -82,7 +62,12 @@
       #define TFM_X86_64
    #endif
 #endif
-#if defined(TFM_X86_64)
+#if defined(__aarch64__) && defined(__APPLE__)
+    #if !defined(TFM_AARCH_64) && !defined(TFM_NO_ASM)
+        #define TFM_AARCH_64
+    #endif
+#endif
+#if defined(TFM_X86_64) || defined(TFM_AARCH_64)
     #if !defined(FP_64BIT)
        #define FP_64BIT
     #endif
@@ -96,7 +81,7 @@
     #undef FP_64BIT
     #undef TFM_X86_64
 #endif
-#endif /* NO_64BIT */
+#endif /* NO_TFM_64BIT */
 
 /* try to detect x86-32 */
 #if defined(__i386__) && !defined(TFM_SSE2)
@@ -224,22 +209,31 @@
 
 /* some default configurations.
  */
-#if defined(FP_64BIT)
+#if defined(WC_16BIT_CPU)
+   typedef unsigned int    fp_digit;
+   #define SIZEOF_FP_DIGIT 2
+   typedef unsigned long   fp_word;
+   typedef   signed long   fp_sword;
+#elif defined(FP_64BIT)
    /* for GCC only on supported platforms */
    typedef unsigned long long fp_digit;   /* 64bit, 128 uses mode(TI) below */
    #define SIZEOF_FP_DIGIT 8
-   typedef unsigned long      fp_word __attribute__ ((mode(TI)));
+   typedef unsigned long      fp_word  __attribute__ ((mode(TI)));
+   typedef   signed long      fp_sword __attribute__ ((mode(TI)));
 #else
 
-   #ifndef NO_64BIT
+   #ifndef NO_TFM_64BIT
       #if defined(_MSC_VER) || defined(__BORLANDC__)
          typedef unsigned __int64   ulong64;
+         typedef   signed __int64    long64;
       #else
          typedef unsigned long long ulong64;
+         typedef   signed long long  long64;
       #endif
       typedef unsigned int       fp_digit;
       #define SIZEOF_FP_DIGIT 4
       typedef ulong64            fp_word;
+      typedef long64             fp_sword;
       #define FP_32BIT
    #else
       /* some procs like coldfire prefer not to place multiply into 64bit type
@@ -247,10 +241,12 @@
       typedef unsigned short     fp_digit;
       #define SIZEOF_FP_DIGIT 2
       typedef unsigned int       fp_word;
+      typedef   signed int       fp_sword;
    #endif
 #endif
 
 #endif /* WOLFSSL_BIGINT_TYPES */
+
 
 /* # of digits this is */
 #define DIGIT_BIT   ((CHAR_BIT) * SIZEOF_FP_DIGIT)
@@ -265,9 +261,17 @@
 #ifndef FP_MAX_BITS
     #define FP_MAX_BITS           4096
 #endif
+#ifdef WOLFSSL_OPENSSH
+    /* OpenSSH uses some BIG primes so we need to accommodate for that */
+    #undef FP_MAX_BITS
+    #define FP_MAX_BITS 16384
+#endif
 #define FP_MAX_SIZE           (FP_MAX_BITS+(8*DIGIT_BIT))
 
 /* will this lib work? */
+#if CHAR_BIT == 0
+   #error CHAR_BIT must be nonzero
+#endif
 #if (CHAR_BIT & 7)
    #error CHAR_BIT must be a multiple of eight.
 #endif
@@ -279,18 +283,25 @@
 #define FP_DIGIT_MAX FP_MASK
 #define FP_SIZE    (FP_MAX_SIZE/DIGIT_BIT)
 
+#define FP_MAX_PRIME_SIZE (FP_MAX_BITS/(2*CHAR_BIT))
+/* In terms of FP_MAX_BITS, it is double the size possible for a number
+ * to allow for multiplication, divide that 2 out. Also divide by CHAR_BIT
+ * to convert from bits to bytes. (Note, FP_PRIME_SIZE is the number of
+ * values in the canned prime number list.) */
+
 /* signs */
 #define FP_ZPOS     0
 #define FP_NEG      1
 
 /* return codes */
 #define FP_OKAY      0
-#define FP_VAL      -1
-#define FP_MEM      -2
-#define FP_NOT_INF	-3
+#define FP_VAL      (-1)
+#define FP_MEM      (-2)
+#define FP_NOT_INF  (-3)
+#define FP_WOULDBLOCK (-4)
 
 /* equalities */
-#define FP_LT        -1   /* less than */
+#define FP_LT        (-1)   /* less than */
 #define FP_EQ         0   /* equal to */
 #define FP_GT         1   /* greater than */
 
@@ -298,8 +309,63 @@
 #define FP_YES        1   /* yes response */
 #define FP_NO         0   /* no response */
 
+
+#ifdef WOLFSSL_SMALL_STACK
+/*
+ * Dynamic memory allocation of mp_int.
+ */
+/* Declare a dynamically allocated mp_int. */
+#define DECL_MP_INT_SIZE(name, bits)                        \
+    mp_int* name = NULL
+/* Declare a dynamically allocated mp_int. */
+#define DECL_MP_INT_SIZE_DYN(name, bits, max)               \
+    mp_int* name = NULL
+/* Allocate an mp_int of minimal size and zero out. */
+#define NEW_MP_INT_SIZE(name, bits, heap, type)             \
+do {                                                        \
+    name = (mp_int*)XMALLOC(sizeof(mp_int), heap, type);    \
+    if (name != NULL) {                                     \
+        XMEMSET(name, 0, sizeof(mp_int));                   \
+    }                                                       \
+}                                                           \
+while (0)
+/* Dispose of dynamically allocated mp_int. */
+#define FREE_MP_INT_SIZE(name, heap, type)      \
+    XFREE(name, heap, type)
+/* Must check for mp_int pointer for NULL. */
+#define MP_INT_SIZE_CHECK_NULL
+#else
+/*
+ * Static allocation of mp_int.
+ */
+/* Declare a statically allocated mp_int. */
+#define DECL_MP_INT_SIZE(name, bits)            \
+    mp_int name[1]
+/* Declare a statically allocated mp_int. */
+#define DECL_MP_INT_SIZE_DYN(name, bits, max)   \
+    mp_int name[1]
+/* Zero out mp_int of minimal size. */
+#define NEW_MP_INT_SIZE(name, bits, heap, type) \
+    XMEMSET(name, 0, sizeof(mp_int))
+/* Dispose of static mp_int. */
+#define FREE_MP_INT_SIZE(name, heap, type) WC_DO_NOTHING
+#endif
+
+/* Initialize an mp_int. */
+#define INIT_MP_INT_SIZE(name, bits) \
+    mp_init(name)
+/* Type to cast to when using size marcos. */
+#define MP_INT_SIZE     mp_int
+
+
 #ifdef HAVE_WOLF_BIGINT
-    struct WC_BIGINT;
+    /* raw big integer */
+    typedef struct WC_BIGINT {
+        byte*   buf;
+        word32  len;
+        void*   heap;
+    } WC_BIGINT;
+    #define WOLF_BIGINT_DEFINED
 #endif
 
 /* a FP type */
@@ -315,6 +381,16 @@ typedef struct fp_int {
     struct WC_BIGINT raw; /* unsigned binary (big endian) */
 #endif
 } fp_int;
+
+/* Types */
+typedef fp_digit mp_digit;
+typedef fp_word  mp_word;
+typedef fp_int   mp_int;
+
+
+/* wolf big int and common functions */
+#include <wolfssl/wolfcrypt/wolfmath.h>
+
 
 /* externally define this symbol to ignore the default settings, useful for changing the build from the make process */
 #ifndef TFM_ALREADY_SET
@@ -394,21 +470,31 @@ typedef struct fp_int {
 /* initialize [or zero] an fp int */
 void fp_init(fp_int *a);
 MP_API void fp_zero(fp_int *a);
-MP_API void fp_clear(fp_int *a); /* uses ForceZero to clear sensitive memory */
+MP_API void fp_clear(fp_int *a);
+/* uses ForceZero to clear sensitive memory */
 MP_API void fp_forcezero (fp_int * a);
 MP_API void fp_free(fp_int* a);
 
-/* zero/even/odd ? */
+/* zero/one/even/odd/neg/word ? */
 #define fp_iszero(a) (((a)->used == 0) ? FP_YES : FP_NO)
 #define fp_isone(a) \
-    ((((a)->used == 1) && ((a)->dp[0] == 1)) ? FP_YES : FP_NO)
-#define fp_iseven(a) (((a)->used > 0 && (((a)->dp[0] & 1) == 0)) ? FP_YES : FP_NO)
-#define fp_isodd(a)  (((a)->used > 0  && (((a)->dp[0] & 1) == 1)) ? FP_YES : FP_NO)
-#define fp_isneg(a)  (((a)->sign != 0) ? FP_YES : FP_NO)
+    ((((a)->used == 1) && ((a)->dp[0] == 1) && ((a)->sign == FP_ZPOS)) \
+                                                               ? FP_YES : FP_NO)
+#define fp_iseven(a) \
+    (((a)->used > 0 && (((a)->dp[0] & 1) == 0)) ? FP_YES : FP_NO)
+#define fp_isodd(a)  \
+    (((a)->used > 0  && (((a)->dp[0] & 1) == 1)) ? FP_YES : FP_NO)
+#define fp_isneg(a)  (((a)->sign != FP_ZPOS) ? FP_YES : FP_NO)
+#define fp_setneg(a) ((a)->sign = FP_NEG)
+#define fp_isword(a, w) \
+    (((((a)->used == 1) && ((a)->dp[0] == (w))) || \
+                               (((w) == 0) && ((a)->used == 0))) ? FP_YES : FP_NO)
+/* Number of bits used based on used field only. */
+#define fp_bitsused(a)   ((a)->used * DIGIT_BIT)
 
 /* set to a small digit */
 void fp_set(fp_int *a, fp_digit b);
-void fp_set_int(fp_int *a, unsigned long b);
+int  fp_set_int(fp_int *a, unsigned long b);
 
 /* check if a bit is set */
 int fp_is_bit_set(fp_int *a, fp_digit b);
@@ -416,7 +502,7 @@ int fp_is_bit_set(fp_int *a, fp_digit b);
 int fp_set_bit (fp_int * a, fp_digit b);
 
 /* copy from a to b */
-void fp_copy(fp_int *a, fp_int *b);
+void fp_copy(const fp_int *a, fp_int *b);
 void fp_init_copy(fp_int *a, fp_int *b);
 
 /* clamp digits */
@@ -432,10 +518,10 @@ void fp_init_copy(fp_int *a, fp_int *b);
 void fp_rshd(fp_int *a, int x);
 
 /* right shift x bits */
-void fp_rshb(fp_int *a, int x);
+void fp_rshb(fp_int *c, int x);
 
 /* left shift x digits */
-void fp_lshd(fp_int *a, int x);
+int fp_lshd(fp_int *a, int x);
 
 /* signed comparison */
 int fp_cmp(fp_int *a, fp_int *b);
@@ -446,25 +532,28 @@ int fp_cmp_mag(fp_int *a, fp_int *b);
 /* power of 2 operations */
 void fp_div_2d(fp_int *a, int b, fp_int *c, fp_int *d);
 void fp_mod_2d(fp_int *a, int b, fp_int *c);
-void fp_mul_2d(fp_int *a, int b, fp_int *c);
+int  fp_mul_2d(fp_int *a, int b, fp_int *c);
 void fp_2expt (fp_int *a, int b);
-void fp_mul_2(fp_int *a, fp_int *c);
-void fp_div_2(fp_int *a, fp_int *c);
+int  fp_mul_2(fp_int *a, fp_int *b);
+void fp_div_2(fp_int *a, fp_int *b);
+/* c = a / 2 (mod b) - constant time (a < b and positive) */
+int fp_div_2_mod_ct(fp_int *a, fp_int *b, fp_int *c);
+
 
 /* Counts the number of lsbs which are zero before the first zero bit */
 int fp_cnt_lsb(fp_int *a);
 
 /* c = a + b */
-void fp_add(fp_int *a, fp_int *b, fp_int *c);
+int fp_add(fp_int *a, fp_int *b, fp_int *c);
 
 /* c = a - b */
-void fp_sub(fp_int *a, fp_int *b, fp_int *c);
+int fp_sub(fp_int *a, fp_int *b, fp_int *c);
 
 /* c = a * b */
-void fp_mul(fp_int *a, fp_int *b, fp_int *c);
+int fp_mul(fp_int *a, fp_int *b, fp_int *c);
 
 /* b = a*a  */
-void fp_sqr(fp_int *a, fp_int *b);
+int fp_sqr(fp_int *a, fp_int *b);
 
 /* a/b => cb + d == a */
 int fp_div(fp_int *a, fp_int *b, fp_int *c, fp_int *d);
@@ -476,13 +565,13 @@ int fp_mod(fp_int *a, fp_int *b, fp_int *c);
 int fp_cmp_d(fp_int *a, fp_digit b);
 
 /* c = a + b */
-void fp_add_d(fp_int *a, fp_digit b, fp_int *c);
+int fp_add_d(fp_int *a, fp_digit b, fp_int *c);
 
 /* c = a - b */
-void fp_sub_d(fp_int *a, fp_digit b, fp_int *c);
+int fp_sub_d(fp_int *a, fp_digit b, fp_int *c);
 
 /* c = a * b */
-void fp_mul_d(fp_int *a, fp_digit b, fp_int *c);
+int fp_mul_d(fp_int *a, fp_digit b, fp_int *c);
 
 /* a/b => cb + d == a */
 /*int fp_div_d(fp_int *a, fp_digit b, fp_int *c, fp_digit *d);*/
@@ -506,31 +595,90 @@ int fp_submod(fp_int *a, fp_int *b, fp_int *c, fp_int *d);
 /* d = a + b (mod c) */
 int fp_addmod(fp_int *a, fp_int *b, fp_int *c, fp_int *d);
 
+/* d = a - b (mod c) - constant time (a < c and b < c) */
+int fp_submod_ct(fp_int *a, fp_int *b, fp_int *c, fp_int *d);
+
+/* d = a + b (mod c) - constant time (a < c and b < c) */
+int fp_addmod_ct(fp_int *a, fp_int *b, fp_int *c, fp_int *d);
+
 /* c = a * a (mod b) */
 int fp_sqrmod(fp_int *a, fp_int *b, fp_int *c);
 
 /* c = 1/a (mod b) */
 int fp_invmod(fp_int *a, fp_int *b, fp_int *c);
+int fp_invmod_mont_ct(fp_int *a, fp_int *b, fp_int *c, fp_digit mp);
 
 /* c = (a, b) */
-/*void fp_gcd(fp_int *a, fp_int *b, fp_int *c);*/
+/*int fp_gcd(fp_int *a, fp_int *b, fp_int *c);*/
 
 /* c = [a, b] */
-/*void fp_lcm(fp_int *a, fp_int *b, fp_int *c);*/
+/*int fp_lcm(fp_int *a, fp_int *b, fp_int *c);*/
 
 /* setups the montgomery reduction */
-int fp_montgomery_setup(fp_int *a, fp_digit *mp);
+int fp_montgomery_setup(fp_int *a, fp_digit *rho);
 
 /* computes a = B**n mod b without division or multiplication useful for
  * normalizing numbers in a Montgomery system.
  */
-void fp_montgomery_calc_normalization(fp_int *a, fp_int *b);
+int fp_montgomery_calc_normalization(fp_int *a, fp_int *b);
 
 /* computes x/R == x (mod N) via Montgomery Reduction */
-void fp_montgomery_reduce(fp_int *a, fp_int *m, fp_digit mp);
+int fp_montgomery_reduce(fp_int *a, fp_int *m, fp_digit mp);
+int fp_montgomery_reduce_ex(fp_int *a, fp_int *m, fp_digit mp, int ct);
 
 /* d = a**b (mod c) */
-int fp_exptmod(fp_int *a, fp_int *b, fp_int *c, fp_int *d);
+int fp_exptmod(fp_int *G, fp_int *X, fp_int *P, fp_int *Y);
+int fp_exptmod_ex(fp_int *G, fp_int *X, int minDigits, fp_int *P, fp_int *Y);
+int fp_exptmod_nct(fp_int *G, fp_int *X, fp_int *P, fp_int *Y);
+
+#ifdef WC_RSA_NONBLOCK
+
+enum tfmExptModNbState {
+  TFM_EXPTMOD_NB_INIT = 0,
+  TFM_EXPTMOD_NB_MONT,
+  TFM_EXPTMOD_NB_MONT_RED,
+  TFM_EXPTMOD_NB_MONT_MUL,
+  TFM_EXPTMOD_NB_MONT_MOD,
+  TFM_EXPTMOD_NB_MONT_MODCHK,
+  TFM_EXPTMOD_NB_NEXT,
+  TFM_EXPTMOD_NB_MUL,
+  TFM_EXPTMOD_NB_MUL_RED,
+  TFM_EXPTMOD_NB_SQR,
+  TFM_EXPTMOD_NB_SQR_RED,
+  TFM_EXPTMOD_NB_RED,
+  TFM_EXPTMOD_NB_COUNT /* last item for total state count only */
+};
+
+typedef struct {
+#ifndef WC_NO_CACHE_RESISTANT
+  fp_int   R[3];
+#else
+  fp_int   R[2];
+#endif
+  fp_digit buf;
+  fp_digit mp;
+  int bitcnt;
+  int digidx;
+  int y;
+  int state; /* tfmExptModNbState */
+#ifdef WC_RSA_NONBLOCK_TIME
+  word32 maxBlockInst; /* maximum instructions to block */
+  word32 totalInst;    /* tracks total instructions */
+#endif
+} exptModNb_t;
+
+#ifdef WC_RSA_NONBLOCK_TIME
+enum {
+  TFM_EXPTMOD_NB_STOP = 0,     /* stop and return FP_WOULDBLOCK */
+  TFM_EXPTMOD_NB_CONTINUE = 1, /* keep blocking */
+};
+#endif
+
+/* non-blocking version of timing resistant fp_exptmod function */
+/* supports cache resistance */
+int fp_exptmod_nb(exptModNb_t* nb, fp_int* G, fp_int* X, fp_int* P, fp_int* Y);
+
+#endif /* WC_RSA_NONBLOCK */
 
 /* primality stuff */
 
@@ -541,7 +689,7 @@ int fp_exptmod(fp_int *a, fp_int *b, fp_int *c, fp_int *d);
 /* 256 trial divisions + 8 Miller-Rabins, returns FP_YES if probable prime  */
 /*int fp_isprime(fp_int *a);*/
 /* extended version of fp_isprime, do 't' Miller-Rabins instead of only 8 */
-/*int fp_isprime_ex(fp_int *a, int t);*/
+/*int fp_isprime_ex(fp_int *a, int t, int* result);*/
 
 /* Primality generation flags */
 /*#define TFM_PRIME_BBS      0x0001 */ /* BBS style prime */
@@ -557,17 +705,14 @@ int fp_exptmod(fp_int *a, fp_int *b, fp_int *c, fp_int *d);
 /*int fp_prime_random_ex(fp_int *a, int t, int size, int flags, tfm_prime_callback cb, void *dat);*/
 
 /* radix conversions */
-int fp_count_bits(fp_int *a);
+int fp_count_bits(const fp_int *a);
 int fp_leading_bit(fp_int *a);
 
-int fp_unsigned_bin_size(fp_int *a);
-void fp_read_unsigned_bin(fp_int *a, const unsigned char *b, int c);
-void fp_to_unsigned_bin(fp_int *a, unsigned char *b);
+int fp_unsigned_bin_size(const fp_int *a);
+int fp_read_unsigned_bin(fp_int *a, const unsigned char *b, int c);
+int fp_to_unsigned_bin(fp_int *a, unsigned char *b);
+int fp_to_unsigned_bin_len(fp_int *a, unsigned char *b, int c);
 int fp_to_unsigned_bin_at_pos(int x, fp_int *t, unsigned char *b);
-
-/*int fp_signed_bin_size(fp_int *a);*/
-/*void fp_read_signed_bin(fp_int *a, const unsigned char *b, int c);*/
-/*void fp_to_signed_bin(fp_int *a, unsigned char *b);*/
 
 /*int fp_read_radix(fp_int *a, char *str, int radix);*/
 /*int fp_toradix(fp_int *a, char *str, int radix);*/
@@ -575,54 +720,47 @@ int fp_to_unsigned_bin_at_pos(int x, fp_int *t, unsigned char *b);
 
 
 /* VARIOUS LOW LEVEL STUFFS */
-void s_fp_add(fp_int *a, fp_int *b, fp_int *c);
+int  s_fp_add(fp_int *a, fp_int *b, fp_int *c);
 void s_fp_sub(fp_int *a, fp_int *b, fp_int *c);
-void fp_reverse(unsigned char *s, int len);
 
-void fp_mul_comba(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba(fp_int *a, fp_int *b, fp_int *c);
 
-void fp_mul_comba_small(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba3(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba4(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba6(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba7(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba8(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba9(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba12(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba17(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba20(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba24(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba28(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba32(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba48(fp_int *a, fp_int *b, fp_int *c);
-void fp_mul_comba64(fp_int *a, fp_int *b, fp_int *c);
-void fp_sqr_comba(fp_int *a, fp_int *b);
-void fp_sqr_comba_small(fp_int *a, fp_int *b);
-void fp_sqr_comba3(fp_int *a, fp_int *b);
-void fp_sqr_comba4(fp_int *a, fp_int *b);
-void fp_sqr_comba6(fp_int *a, fp_int *b);
-void fp_sqr_comba7(fp_int *a, fp_int *b);
-void fp_sqr_comba8(fp_int *a, fp_int *b);
-void fp_sqr_comba9(fp_int *a, fp_int *b);
-void fp_sqr_comba12(fp_int *a, fp_int *b);
-void fp_sqr_comba17(fp_int *a, fp_int *b);
-void fp_sqr_comba20(fp_int *a, fp_int *b);
-void fp_sqr_comba24(fp_int *a, fp_int *b);
-void fp_sqr_comba28(fp_int *a, fp_int *b);
-void fp_sqr_comba32(fp_int *a, fp_int *b);
-void fp_sqr_comba48(fp_int *a, fp_int *b);
-void fp_sqr_comba64(fp_int *a, fp_int *b);
+int  fp_mul_comba_small(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba3(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba4(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba6(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba7(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba8(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba9(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba12(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba17(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba20(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba24(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba28(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba32(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba48(fp_int *a, fp_int *b, fp_int *c);
+int  fp_mul_comba64(fp_int *a, fp_int *b, fp_int *c);
+int  fp_sqr_comba(fp_int *a, fp_int *b);
+int  fp_sqr_comba_small(fp_int *a, fp_int *b);
+int  fp_sqr_comba3(fp_int *a, fp_int *b);
+int  fp_sqr_comba4(fp_int *a, fp_int *b);
+int  fp_sqr_comba6(fp_int *a, fp_int *b);
+int  fp_sqr_comba7(fp_int *a, fp_int *b);
+int  fp_sqr_comba8(fp_int *a, fp_int *b);
+int  fp_sqr_comba9(fp_int *a, fp_int *b);
+int  fp_sqr_comba12(fp_int *a, fp_int *b);
+int  fp_sqr_comba17(fp_int *a, fp_int *b);
+int  fp_sqr_comba20(fp_int *a, fp_int *b);
+int  fp_sqr_comba24(fp_int *a, fp_int *b);
+int  fp_sqr_comba28(fp_int *a, fp_int *b);
+int  fp_sqr_comba32(fp_int *a, fp_int *b);
+int  fp_sqr_comba48(fp_int *a, fp_int *b);
+int  fp_sqr_comba64(fp_int *a, fp_int *b);
 
 
 /**
  * Used by wolfSSL
  */
-
-/* Types */
-typedef fp_digit mp_digit;
-typedef fp_word  mp_word;
-typedef fp_int mp_int;
-#define MP_INT_DEFINED
 
 /* Constants */
 #define MP_LT   FP_LT   /* less than    */
@@ -639,10 +777,13 @@ typedef fp_int mp_int;
 #define MP_MASK FP_MASK
 
 /* Prototypes */
-#define mp_zero(a)   fp_zero(a)
-#define mp_isone(a)  fp_isone(a)
-#define mp_iseven(a) fp_iseven(a)
-#define mp_isneg(a)  fp_isneg(a)
+#define mp_zero(a)      fp_zero(a)
+#define mp_isone(a)     fp_isone(a)
+#define mp_iseven(a)    fp_iseven(a)
+#define mp_isneg(a)     fp_isneg(a)
+#define mp_setneg(a)    fp_setneg(a)
+#define mp_isword(a, w) fp_isword(a, w)
+#define mp_bitsused(a)  fp_bitsused(a)
 
 #define MP_RADIX_BIN  2
 #define MP_RADIX_OCT  8
@@ -656,6 +797,7 @@ typedef fp_int mp_int;
 #define mp_tohex(M, S)     mp_toradix((M), (S), MP_RADIX_HEX)
 
 MP_API int  mp_init (mp_int * a);
+MP_API int  mp_init_copy(fp_int * a, fp_int * b);
 MP_API void mp_clear (mp_int * a);
 MP_API void mp_free (mp_int * a);
 MP_API void mp_forcezero (mp_int * a);
@@ -671,9 +813,15 @@ MP_API int  mp_mul_d (mp_int * a, mp_digit b, mp_int * c);
 MP_API int  mp_mulmod (mp_int * a, mp_int * b, mp_int * c, mp_int * d);
 MP_API int  mp_submod (mp_int* a, mp_int* b, mp_int* c, mp_int* d);
 MP_API int  mp_addmod (mp_int* a, mp_int* b, mp_int* c, mp_int* d);
+MP_API int  mp_submod_ct (mp_int* a, mp_int* b, mp_int* c, mp_int* d);
+MP_API int  mp_addmod_ct (mp_int* a, mp_int* b, mp_int* c, mp_int* d);
 MP_API int  mp_mod(mp_int *a, mp_int *b, mp_int *c);
 MP_API int  mp_invmod(mp_int *a, mp_int *b, mp_int *c);
+MP_API int  mp_invmod_mont_ct(mp_int *a, mp_int *b, mp_int *c, fp_digit mp);
 MP_API int  mp_exptmod (mp_int * g, mp_int * x, mp_int * p, mp_int * y);
+MP_API int  mp_exptmod_ex (mp_int * g, mp_int * x, int minDigits, mp_int * p,
+                           mp_int * y);
+MP_API int  mp_exptmod_nct (mp_int * g, mp_int * x, mp_int * p, mp_int * y);
 MP_API int  mp_mul_2d(mp_int *a, int b, mp_int *c);
 MP_API int  mp_2expt(mp_int* a, int b);
 
@@ -682,16 +830,18 @@ MP_API int  mp_div(mp_int * a, mp_int * b, mp_int * c, mp_int * d);
 MP_API int  mp_cmp(mp_int *a, mp_int *b);
 MP_API int  mp_cmp_d(mp_int *a, mp_digit b);
 
-MP_API int  mp_unsigned_bin_size(mp_int * a);
+MP_API int  mp_unsigned_bin_size(const mp_int * a);
 MP_API int  mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c);
 MP_API int  mp_to_unsigned_bin_at_pos(int x, mp_int *t, unsigned char *b);
 MP_API int  mp_to_unsigned_bin (mp_int * a, unsigned char *b);
+#define mp_to_unsigned_bin_len_ct   mp_to_unsigned_bin_len
+MP_API int  mp_to_unsigned_bin_len(mp_int * a, unsigned char *b, int c);
 
 MP_API int  mp_sub_d(fp_int *a, fp_digit b, fp_int *c);
-MP_API int  mp_copy(fp_int* a, fp_int* b);
+MP_API int  mp_copy(const fp_int* a, fp_int* b);
 MP_API int  mp_isodd(mp_int* a);
 MP_API int  mp_iszero(mp_int* a);
-MP_API int  mp_count_bits(mp_int *a);
+MP_API int  mp_count_bits(const mp_int *a);
 MP_API int  mp_leading_bit(mp_int *a);
 MP_API int  mp_set_int(mp_int *a, unsigned long b);
 MP_API int  mp_is_bit_set (mp_int * a, mp_digit b);
@@ -704,37 +854,46 @@ MP_API int mp_radix_size (mp_int * a, int radix, int *size);
 #ifdef WOLFSSL_DEBUG_MATH
     MP_API void mp_dump(const char* desc, mp_int* a, byte verbose);
 #else
-    #define mp_dump(desc, a, verbose)
+    #define mp_dump(desc, a, verbose) WC_DO_NOTHING
 #endif
 
-#if !defined(NO_DSA) || defined(HAVE_ECC)
+#if defined(OPENSSL_EXTRA) || !defined(NO_DSA) || defined(HAVE_ECC)
     MP_API int mp_read_radix(mp_int* a, const char* str, int radix);
 #endif
 
 #ifdef HAVE_ECC
     MP_API int mp_sqr(fp_int *a, fp_int *b);
     MP_API int mp_montgomery_reduce(fp_int *a, fp_int *m, fp_digit mp);
+    MP_API int mp_montgomery_reduce_ex(fp_int *a, fp_int *m, fp_digit mp,
+                                       int ct);
     MP_API int mp_montgomery_setup(fp_int *a, fp_digit *rho);
     MP_API int mp_div_2(fp_int * a, fp_int * b);
-    MP_API int mp_init_copy(fp_int * a, fp_int * b);
+    MP_API int mp_div_2_mod_ct(mp_int *a, mp_int *b, mp_int *c);
 #endif
 
-#if defined(HAVE_ECC) || !defined(NO_RSA) || !defined(NO_DSA)
+#if defined(HAVE_ECC) || !defined(NO_RSA) || !defined(NO_DSA) || \
+    defined(WOLFSSL_KEY_GEN)
     MP_API int mp_set(fp_int *a, fp_digit b);
 #endif
 
-#if defined(HAVE_ECC) || defined(WOLFSSL_KEY_GEN)
+#if defined(HAVE_ECC) || defined(WOLFSSL_KEY_GEN) || !defined(NO_RSA) || \
+    !defined(NO_DSA) || !defined(NO_DH)
     MP_API int mp_sqrmod(mp_int* a, mp_int* b, mp_int* c);
     MP_API int mp_montgomery_calc_normalization(mp_int *a, mp_int *b);
 #endif
 
+#if !defined(NO_DH) || !defined(NO_DSA) || !defined(NO_RSA) || defined(WOLFSSL_KEY_GEN)
+MP_API int  mp_prime_is_prime(mp_int* a, int t, int* result);
+MP_API int  mp_prime_is_prime_ex(mp_int* a, int t, int* result, WC_RNG* rng);
+#endif /* !NO_DH || !NO_DSA || !NO_RSA || WOLFSSL_KEY_GEN */
 #ifdef WOLFSSL_KEY_GEN
 MP_API int  mp_gcd(fp_int *a, fp_int *b, fp_int *c);
 MP_API int  mp_lcm(fp_int *a, fp_int *b, fp_int *c);
-MP_API int  mp_prime_is_prime(mp_int* a, int t, int* result);
-MP_API int  mp_rand_prime(mp_int* N, int len, WC_RNG* rng, void* heap);
+MP_API int  mp_rand_prime(mp_int* a, int len, WC_RNG* rng, void* heap);
 MP_API int  mp_exch(mp_int *a, mp_int *b);
 #endif /* WOLFSSL_KEY_GEN */
+MP_API int  mp_cond_swap_ct_ex(mp_int* a, mp_int* b, int c, int m, mp_int* t);
+MP_API int  mp_cond_swap_ct(mp_int* a, mp_int* b, int c, int m);
 
 MP_API int  mp_cnt_lsb(fp_int *a);
 MP_API int  mp_div_2d(fp_int *a, int b, fp_int *c, fp_int *d);
@@ -743,14 +902,16 @@ MP_API int  mp_lshd (mp_int * a, int b);
 MP_API int  mp_abs(mp_int* a, mp_int* b);
 
 WOLFSSL_API word32 CheckRunTimeFastMath(void);
+WOLFSSL_LOCAL void mp_reverse(unsigned char *s, int len);
+
+#ifdef WOLFSSL_CHECK_MEM_ZERO
+void mp_memzero_add(const char* name, mp_int* a);
+void mp_memzero_check(mp_int* a);
+#endif
 
 /* If user uses RSA, DH, DSA, or ECC math lib directly then fast math FP_SIZE
    must match, return 1 if a match otherwise 0 */
 #define CheckFastMathSettings() (FP_SIZE == CheckRunTimeFastMath())
-
-
-/* wolf big int and common functions */
-#include <wolfssl/wolfcrypt/wolfmath.h>
 
 
 #ifdef __cplusplus

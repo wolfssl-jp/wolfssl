@@ -1,22 +1,12 @@
 /* asn_public.h
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2024 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * https://www.wolfssl.com
  */
 
 /*!
@@ -320,6 +310,12 @@ WOLFSSL_API int wc_SetExtKeyUsageOID(Cert *cert, const char *oid, word32 sz,
                                 word32 outputSz, int type);
     WOLFSSL_API int wc_DerToPemEx(const byte* der, word32 derSz, byte* output,
                                 word32 outputSz, byte *cipherIno, int type);
+#endif
+
+#if !defined(NO_RSA) && !defined(HAVE_USER_RSA)
+    WOLFSSL_API int wc_RsaPublicKeyDecode_ex(const byte *input, word32 *inOutIdx,
+                                             word32 inSz, const byte **n, word32 *nSz, const byte **e, word32 *eSz);
+    WOLFSSL_API int wc_RsaKeyToPublicDer(RsaKey *key, byte *output, word32 inLen);
 #endif
 
 #ifdef HAVE_ECC

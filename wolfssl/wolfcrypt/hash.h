@@ -1,22 +1,12 @@
 /* hash.h
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2024 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * https://www.wolfssl.com
  */
 
 /*!
@@ -56,19 +46,51 @@
 #endif
 
 
-/* Hash types */
-enum wc_HashType {
-    WC_HASH_TYPE_NONE = 0,
-    WC_HASH_TYPE_MD2 = 1,
-    WC_HASH_TYPE_MD4 = 2,
-    WC_HASH_TYPE_MD5 = 3,
-    WC_HASH_TYPE_SHA = 4, /* SHA-1 (not old SHA-0) */
-    WC_HASH_TYPE_SHA224 = 9,
-    WC_HASH_TYPE_SHA256 = 5,
-    WC_HASH_TYPE_SHA384 = 6,
-    WC_HASH_TYPE_SHA512 = 7,
-    WC_HASH_TYPE_MD5_SHA = 8,
-};
+    /* hash types */
+    enum wc_HashType {
+    #if defined(HAVE_SELFTEST) || defined(HAVE_FIPS)
+        /* In selftest build, WC_* types are not mapped to WC_HASH_TYPE types.
+         * Values here are based on old selftest hmac.h enum, with additions.
+         * These values are fixed for backwards FIPS compatibility */
+        WC_HASH_TYPE_NONE = 15,
+        WC_HASH_TYPE_MD2 = 16,
+        WC_HASH_TYPE_MD4 = 17,
+        WC_HASH_TYPE_MD5 = 0,
+        WC_HASH_TYPE_SHA = 1, /* SHA-1 (not old SHA-0) */
+        WC_HASH_TYPE_SHA224 = 8,
+        WC_HASH_TYPE_SHA256 = 2,
+        WC_HASH_TYPE_SHA384 = 5,
+        WC_HASH_TYPE_SHA512 = 4,
+        WC_HASH_TYPE_MD5_SHA = 18,
+        WC_HASH_TYPE_SHA3_224 = 10,
+        WC_HASH_TYPE_SHA3_256 = 11,
+        WC_HASH_TYPE_SHA3_384 = 12,
+        WC_HASH_TYPE_SHA3_512 = 13,
+        WC_HASH_TYPE_BLAKE2B = 14,
+        WC_HASH_TYPE_BLAKE2S = 19,
+
+        WC_HASH_TYPE_MAX = WC_HASH_TYPE_BLAKE2S
+    #else
+        WC_HASH_TYPE_NONE = 0,
+        WC_HASH_TYPE_MD2 = 1,
+        WC_HASH_TYPE_MD4 = 2,
+        WC_HASH_TYPE_MD5 = 3,
+        WC_HASH_TYPE_SHA = 4, /* SHA-1 (not old SHA-0) */
+        WC_HASH_TYPE_SHA224 = 5,
+        WC_HASH_TYPE_SHA256 = 6,
+        WC_HASH_TYPE_SHA384 = 7,
+        WC_HASH_TYPE_SHA512 = 8,
+        WC_HASH_TYPE_MD5_SHA = 9,
+        WC_HASH_TYPE_SHA3_224 = 10,
+        WC_HASH_TYPE_SHA3_256 = 11,
+        WC_HASH_TYPE_SHA3_384 = 12,
+        WC_HASH_TYPE_SHA3_512 = 13,
+        WC_HASH_TYPE_BLAKE2B = 14,
+        WC_HASH_TYPE_BLAKE2S = 15,
+
+        WC_HASH_TYPE_MAX = WC_HASH_TYPE_BLAKE2S
+    #endif /* HAVE_SELFTEST */
+    };
 
 typedef union {
     #ifndef NO_MD5

@@ -1,22 +1,12 @@
 /* error-crypt.h
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2024 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * https://www.wolfssl.com
  */
 
 /*!
@@ -206,6 +196,10 @@ enum {
     DH_KAT_FIPS_E       = -256,  /* DH KAT failure */
 
     WC_LAST_E           = -256,  /* Update this to indicate last error */
+    AES_GCM_OVERFLOW_E  = -260,  /* AES-GCM invocation counter overflow. */
+    AES_CCM_OVERFLOW_E  = -261,  /* AES-CCM invocation counter overflow. */
+    RSA_KEY_PAIR_E      = -262,  /* RSA Key Pair-Wise Consistency check fail. */
+    
     MIN_CODE_E          = -300   /* errors -101 - -299 */
 
     /* add new companion error id strings for any new error codes

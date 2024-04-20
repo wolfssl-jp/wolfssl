@@ -1,22 +1,12 @@
 /* misc.c
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2024 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * https://www.wolfssl.com
  */
 
 
@@ -301,7 +291,67 @@ STATIC INLINE word32 btoi(byte b)
     return (word32)(b - 0x30);
 }
 
+#ifndef WOLFSSL_NO_CT_OPS
+/* Constant time - mask set when a > b. */
+STATIC WC_INLINE byte ctMaskGT(int a, int b)
+{
+    return (((word32)a - b - 1) >> 31) - 1;
+}
 
+/* Constant time - mask set when a >= b. */
+STATIC WC_INLINE byte ctMaskGTE(int a, int b)
+{
+    return (((word32)a - b    ) >> 31) - 1;
+}
+
+/* Constant time - mask set when a < b. */
+STATIC WC_INLINE byte ctMaskLT(int a, int b)
+{
+    return (((word32)b - a - 1) >> 31) - 1;
+}
+
+/* Constant time - mask set when a <= b. */
+STATIC WC_INLINE byte ctMaskLTE(int a, int b)
+{
+    return (((word32)b - a    ) >> 31) - 1;
+}
+
+/* Constant time - mask set when a == b. */
+STATIC WC_INLINE byte ctMaskEq(int a, int b)
+{
+    return 0 - (a == b);
+}
+
+STATIC WC_INLINE word16 ctMask16Eq(int a, int b)
+{
+    return 0 - (a == b);
+}
+
+/* Constant time - mask set when a != b. */
+STATIC WC_INLINE byte ctMaskNotEq(int a, int b)
+{
+    return 0 - (a != b);
+}
+
+/* Constant time - select a when mask is set and b otherwise. */
+STATIC WC_INLINE byte ctMaskSel(byte m, byte a, byte b)
+{
+    return (b & ((byte)~(word32)m)) | (a & m);
+}
+
+/* Constant time - select integer a when mask is set and integer b otherwise. */
+STATIC WC_INLINE int ctMaskSelInt(byte m, int a, int b)
+{
+    return (b & (~(signed int)(signed char)m)) |
+           (a & ( (signed int)(signed char)m));
+}
+
+/* Constant time - bit set when a <= b. */
+STATIC WC_INLINE byte ctSetLTE(int a, int b)
+{
+    return ((word32)a - b - 1) >> 31;
+}
+#endif
 
 #undef STATIC
 

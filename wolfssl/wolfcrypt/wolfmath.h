@@ -1,22 +1,12 @@
 /* wolfmath.h
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2024 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * https://www.wolfssl.com
  */
 
 #if defined(HAVE_WOLF_BIGINT) && !defined(WOLF_BIGINT_DEFINED)
@@ -36,6 +26,13 @@
 
 #ifndef __WOLFMATH_H__
 #define __WOLFMATH_H__
+
+#ifdef WOLFSSL_PUBLIC_MP
+    #undef  MP_API
+    #define MP_API   WOLFSSL_API
+#else
+    #define MP_API   WOLFSSL_LOCAL
+#endif
 
     /* timing resistance array */
     #if !defined(WC_NO_CACHE_RESISTANT) && \
@@ -61,10 +58,19 @@
         void wc_bigint_free(WC_BIGINT* a);
 
         int wc_mp_to_bigint(mp_int* src, WC_BIGINT* dst);
+        int wc_mp_to_bigint_sz(mp_int *src, WC_BIGINT *dst, word32 sz);
         int wc_bigint_to_mp(WC_BIGINT* src, mp_int* dst);
     #endif /* HAVE_WOLF_BIGINT */
 
 int mp_cond_copy(mp_int *a, int copy, mp_int *b);
+
+#ifndef MIN
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#endif
+
+#ifndef MAX
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#endif
 
 #endif /* __WOLFMATH_H__ */
 

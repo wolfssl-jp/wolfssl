@@ -273,15 +273,16 @@ MP_API int  mp_init (mp_int * a);
 MP_API void mp_clear (mp_int * a);
 MP_API void mp_free (mp_int * a);
 MP_API void mp_forcezero(mp_int * a);
-MP_API int  mp_unsigned_bin_size(mp_int * a);
+MP_API int  mp_unsigned_bin_size(const mp_int *a); /* 3.14.2a (2024) change to const */
 MP_API int  mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c);
 MP_API int  mp_to_unsigned_bin_at_pos(int x, mp_int *t, unsigned char *b);
 MP_API int  mp_to_unsigned_bin (mp_int * a, unsigned char *b);
+MP_API int  mp_to_unsigned_bin_len(mp_int * a, unsigned char *b, int c);
 MP_API int  mp_exptmod (mp_int * G, mp_int * X, mp_int * P, mp_int * Y);
 /* end functions needed by Rsa */
 
 /* functions added to support above needed, removed TOOM and KARATSUBA */
-MP_API int  mp_count_bits (mp_int * a);
+MP_API int  mp_count_bits (const mp_int * a); /* 3.14.2a (2024) change to const */
 MP_API int  mp_leading_bit (mp_int * a);
 MP_API int  mp_init_copy (mp_int * a, mp_int * b);
 MP_API int  mp_copy (mp_int * a, mp_int * b);
@@ -316,6 +317,7 @@ MP_API int  mp_reduce_is_2k(mp_int *a);
 MP_API int  mp_dr_is_modulus(mp_int *a);
 MP_API int  mp_exptmod_fast (mp_int * G, mp_int * X, mp_int * P, mp_int * Y,
                              int);
+#define mp_exptmod_nct(G,X,P,Y)    mp_exptmod_fast(G,X,P,Y,0) /* 3.14.2a (2024) */
 MP_API int  mp_montgomery_setup (mp_int * n, mp_digit * rho);
 int  fast_mp_montgomery_reduce (mp_int * x, mp_int * n, mp_digit rho);
 MP_API int  mp_montgomery_reduce (mp_int * x, mp_int * n, mp_digit rho);
@@ -372,6 +374,7 @@ MP_API int mp_radix_size (mp_int * a, int radix, int *size);
 
 #ifdef WOLFSSL_KEY_GEN
     MP_API int mp_prime_is_prime (mp_int * a, int t, int *result);
+    MP_API int mp_prime_is_prime_ex (mp_int * a, int t, int *result, WC_RNG*);
     MP_API int mp_gcd (mp_int * a, mp_int * b, mp_int * c);
     MP_API int mp_lcm (mp_int * a, mp_int * b, mp_int * c);
     MP_API int mp_rand_prime(mp_int* N, int len, WC_RNG* rng, void* heap);

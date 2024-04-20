@@ -1,22 +1,12 @@
 /* misc.h
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2024 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * https://www.wolfssl.com
  */
 
 
@@ -90,9 +80,21 @@ void ato16(const byte* c, word16* u16);
 void ato24(const byte* c, word32* u24);
 void ato32(const byte* c, word32* u32);
 word32 btoi(byte b);
-
+int ctMaskSelInt(byte m, int a, int b);
 #endif /* NO_INLINE */
 
+#if MISC_STATIC_API
+static WOLFSSL_LOCAL byte ctMaskGT(int a, int b);
+static WOLFSSL_LOCAL byte ctMaskGTE(int a, int b);
+static WOLFSSL_LOCAL byte ctMaskLT(int a, int b);
+static WOLFSSL_LOCAL byte ctMaskLTE(int a, int b);
+static WOLFSSL_LOCAL byte ctMaskEq(int a, int b);
+static WOLFSSL_LOCAL word16 ctMask16Eq(int a, int b);
+static WOLFSSL_LOCAL byte ctMaskNotEq(int a, int b);
+static WOLFSSL_LOCAL byte ctMaskSel(byte m, byte a, byte b);
+static WOLFSSL_LOCAL int ctMaskSelInt(byte m, int a, int b);
+static WOLFSSL_LOCAL byte ctSetLTE(int a, int b);
+#endif
 
 #ifdef __cplusplus
     }   /* extern "C" */

@@ -1,22 +1,12 @@
 /* types.h
  *
- * Copyright (C) 2006-2017 wolfSSL Inc.
+ * Copyright (C) 2006-2024 wolfSSL Inc.  All rights reserved.
  *
  * This file is part of wolfSSL.
  *
- * wolfSSL is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Contact licensing@wolfssl.com with any questions or comments.
  *
- * wolfSSL is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
+ * https://www.wolfssl.com
  */
 
 /*!
@@ -127,6 +117,16 @@
 
 	#define WOLFSSL_MAX_16BIT 0xffffU
 
+   #ifndef WARN_UNUSED_RESULT
+        #if defined(WOLFSSL_LINUXKM) && defined(__must_check)
+            #define WARN_UNUSED_RESULT __must_check
+        #elif defined(__GNUC__) && (__GNUC__ >= 4)
+            #define WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+        #else
+            #define WARN_UNUSED_RESULT
+        #endif
+    #endif /* WARN_UNUSED_RESULT */
+
 	/* use inlining if compiler allows */
 	#ifndef INLINE
 	#ifndef NO_INLINE
@@ -150,6 +150,37 @@
 	#endif
 	#endif
 
+    /* use inlining if compiler allows */
+    #ifndef WC_INLINE
+        #ifdef _MSC_VER
+            #define WC_INLINE __inline
+        #elif defined(__GNUC__)
+               #ifdef WOLFSSL_VXWORKS
+                   #define WC_INLINE __inline__
+               #else
+                   #define WC_INLINE inline
+               #endif
+        #elif defined(__IAR_SYSTEMS_ICC__)
+            #define WC_INLINE inline
+        #elif defined(THREADX)
+            #define WC_INLINE _Inline
+        #elif defined(__ghc__)
+            #ifndef __cplusplus
+                #define WC_INLINE __inline
+            #else
+                #define WC_INLINE inline
+            #endif
+        #else
+            #define WC_INLINE
+        #endif
+    #else
+        #define WC_INLINE
+    #endif
+
+    #if defined(HAVE_FIPS) || defined(HAVE_SELFTEST)
+        #undef  INLINE
+        #define INLINE WC_INLINE
+    #endif
 
     /* set up rotate style */
     #if (defined(_MSC_VER) || defined(__BCPLUSPLUS__)) && \
