@@ -13117,7 +13117,11 @@ void bench_sphincsKeySign(byte level, byte optim)
 
 #else
 
-    #include <sys/time.h>
+    #if defined(WOLFSSL_RPI_PICO)
+        #include <time.h>
+    #else
+        #include <sys/time.h>
+    #endif
 
     double current_time(int reset)
     {
