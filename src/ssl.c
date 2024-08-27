@@ -17845,6 +17845,12 @@ size_t wolfSSL_get_client_random(const WOLFSSL* ssl, unsigned char* out,
         ssl->keys.encryptionOn = 0;
         XMEMSET(&ssl->msgsReceived, 0, sizeof(ssl->msgsReceived));
 
+#ifdef HAVE_SESSION_TICKET
+    #ifdef WOLFSSL_TLS13
+    ssl->options.ticketsSent = 0;
+    #endif
+#endif
+
         InitSSL_Suites(ssl);
 
         if (ssl->hsHashes != NULL) {

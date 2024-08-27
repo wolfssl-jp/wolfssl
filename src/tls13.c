@@ -8936,6 +8936,7 @@ int wolfSSL_accept_TLSv13(WOLFSSL* ssl)
                     WOLFSSL_ERROR(ssl->error);
                     return WOLFSSL_FATAL_ERROR;
                 }
+                ssl->options.ticketsSent = 1;
             }
     #endif
 #endif /* HAVE_SESSION_TICKET */
