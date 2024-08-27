@@ -13267,14 +13267,8 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
             plainSz = ret;
             TEST_SLEEP();
 
-#if defined(HAVE_SELFTEST) && \
-    (!defined(HAVE_SELFTEST_VERSION) || (HAVE_SELFTEST_VERSION < 2))
-            ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz,
-                                         hash[j], -1);
-#else
             ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz,
                                          hash[j], -1, wc_RsaEncryptSize(key)*8);
-#endif
             if (ret != 0)
                 ERROR_OUT(-7733, exit_rsa_pss);
 
@@ -13343,14 +13337,8 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
             WC_ASYNC_FLAG_CALL_AGAIN);
     #endif
         if (ret >= 0) {
-#if defined(HAVE_SELFTEST) && \
-    (!defined(HAVE_SELFTEST_VERSION) || (HAVE_SELFTEST_VERSION < 2))
-            ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, sig, plainSz,
-                hash[0], 0);
-#else
             ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, sig, plainSz,
                 hash[0], 0, 0);
-#endif
         }
     } while (ret == WC_PENDING_E);
     if (ret != 0)
@@ -13373,14 +13361,8 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
     plainSz = ret;
     TEST_SLEEP();
 
-#if defined(HAVE_SELFTEST) && \
-    (!defined(HAVE_SELFTEST_VERSION) || (HAVE_SELFTEST_VERSION < 2))
-    ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
-                                    0);
-#else
     ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
                                     0, 0);
-#endif
     if (ret != 0)
         ERROR_OUT(-7739, exit_rsa_pss);
 
@@ -13452,14 +13434,8 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
 #else
     len = -3;
 #endif
-#if defined(HAVE_SELFTEST) && \
-    (!defined(HAVE_SELFTEST_VERSION) || (HAVE_SELFTEST_VERSION < 2))
-    ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
-                                    len);
-#else
     ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
                                     len, 0);
-#endif
     if (ret != PSS_SALTLEN_E)
         ERROR_OUT(-7744, exit_rsa_pss);
 #ifndef WOLFSSL_PSS_LONG_SALT
@@ -13467,14 +13443,8 @@ static int rsa_pss_test(WC_RNG* rng, RsaKey* key)
 #else
     len = plainSz - digestSz - 1;
 #endif
-#if defined(HAVE_SELFTEST) && \
-    (!defined(HAVE_SELFTEST_VERSION) || (HAVE_SELFTEST_VERSION < 2))
-    ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
-                                    len);
-#else
     ret = wc_RsaPSS_CheckPadding_ex(digest, digestSz, plain, plainSz, hash[0],
                                     len, 0);
-#endif
     if (ret != PSS_SALTLEN_E)
         ERROR_OUT(-7745, exit_rsa_pss);
 
