@@ -132,6 +132,25 @@
     #include <pthread.h>
 #endif
 
+#if defined(HAVE_FIPS) && FIPS_VERSION3_GE(5, 2, 1) && defined(FIPS_POST_LIKE_140_2)
+/* This is a constructor that will exemplify the 140-2 style of power on self test
+ * where ALL casts run prior to main() execution */
+__attribute__((constructor(999))) static void constructor(void)
+{
+    if (wolfCrypt_GetStatus_fips() != 0)
+    {
+        return;
+    }
+#ifdef WC_RNG_SEED_CB
+    wc_SetSeed_Cb(wc_GenerateSeed);
+#endif
+    if (wc_RunAllCast_fips() != 0)
+    {
+        return;
+    }
+}
+#endif
+
 /* prevent multiple mutex initializations */
 static volatile int initRefCount = 0;
 
