@@ -1062,6 +1062,13 @@ WOLFSSL_CTX* wolfSSL_CTX_new_ex(WOLFSSL_METHOD* method, void* heap)
         }
     }
 
+    #if defined(HAVE_FIPS) && FIPS_VERSION3_GE(5, 2, 0) && defined(FIPS_ALLCAST_MUTEX)
+    if(wc_RunAllCast_fips_mutex() != 0) {
+        WOLFSSL_LEAVE("ERROR: wolfSSL_CTX_new_ex, wc_RunAllCast_fips_mutex", 0);
+        return NULL;
+    }
+    #endif
+
     if (method == NULL)
         return ctx;
 

@@ -1371,4 +1371,8 @@ WOLFSSL_ABI WOLFSSL_API int wolfCrypt_Cleanup(void);
     }  /* extern "C" */
 #endif
 
+#if defined(HAVE_FIPS) && FIPS_VERSION3_GE(5, 2, 0) && defined(FIPS_ALLCAST_MUTEX)
+int wc_RunAllCast_fips_mutex(void);
+#endif
+
 #endif /* WOLF_CRYPT_PORT_H */

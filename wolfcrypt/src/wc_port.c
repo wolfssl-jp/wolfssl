@@ -147,7 +147,287 @@
 #if defined(CONFIG_BOARD_NATIVE_POSIX)
 #include "native_rtc.h"
 #define CONFIG_RTC
+
 #endif
+#endif
+
+
+#if defined(HAVE_FIPS) && FIPS_VERSION3_GE(5, 2, 0) && defined(FIPS_ALLCAST_MUTEX)
+
+//#define INLINE
+
+typedef pthread_key_t TLS_Key;
+
+#undef INLINE
+
+
+#include "wolfssl/wolfcrypt/fips.h"
+#include "wolfssl/wolfcrypt/fips_test.h"
+
+#if defined(HAVE_FORCE_FIPS_FAILURE) || defined(DEBUG_WOLFSSL)
+    #include <stdio.h>
+    static void FIPS_MSG(const char* msg)
+    {
+        printf("%s\n", msg);
+    }
+#else
+    #define FIPS_MSG(m)
+#endif
+
+    extern enum FipsModeId fipsMode;
+    static wolfSSL_Mutex fips_allCast_mutex;
+
+    __attribute__((constructor(999))) static void constructor_mutex(void)
+    {
+
+#ifdef WC_RNG_SEED_CB
+        wc_SetSeed_Cb(wc_GenerateSeed);
+#endif
+
+#if defined(DEBUG_FIPS_VERBOSE)
+        if (wc_InitMutex(&fips_allCast_mutex) == 0)
+            printf("FIPS Cast_mutex initialized\n");
+        else
+            printf("ERROR: FIPS Cast_mutex[%d] initialization\n", i);
+#else
+        wc_InitMutex(&fips_allCast_mutex);
+#endif
+    }
+
+static int RunAllCastCount = 0;
+
+int wc_RunAllCast_fips_mutex(void)
+{
+    int failCount = 0;
+
+    wc_LockMutex(&fips_allCast_mutex);
+    if(RunAllCastCount != 0) {
+        wc_UnLockMutex(&fips_allCast_mutex);
+        return 0;
+    }
+
+    WOLFSSL_ENTER("wc_RunAllCast_fips_mutex");
+
+#if !defined(NO_AES) && !defined(NO_AES_CBC)
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("FIPS_CAST_STATE_FAILURE = %d\n", FIPS_CAST_STATE_FAILURE);
+    printf("wc_GetCastStatus_fips(FIPS_CAST_AES_CBC) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_AES_CBC));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_AES_CBC) != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_AES_CBC) != 0) {
+            FIPS_MSG("AES-CBC CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifdef HAVE_AESGCM
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_AES_GCM) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_AES_GCM));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_AES_GCM) != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_AES_GCM) != 0) {
+            FIPS_MSG("AES-GCM CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifndef NO_SHA
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA1) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA1));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA1) != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_HMAC_SHA1) != 0) {
+            FIPS_MSG("HMAC-SHA1 CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+    /* the only non-optional CAST */
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA2_256) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA2_256));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA2_256)
+                              != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_HMAC_SHA2_256) != 0) {
+            FIPS_MSG("HMAC-SHA2-256 CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#ifdef WOLFSSL_SHA512
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA2_512) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA2_512));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA2_512)
+                              != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_HMAC_SHA2_512) != 0) {
+            FIPS_MSG("HMAC-SHA2-512 CAST failed");
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifdef WOLFSSL_SHA3
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA3_256) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA3_256));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_HMAC_SHA3_256)
+                              != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_HMAC_SHA3_256) != 0) {
+            FIPS_MSG("HMAC-SHA3-256 CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifdef HAVE_HASHDRBG
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_DRBG) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_DRBG));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_DRBG) != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_DRBG) != 0) {
+            FIPS_MSG("Hash_DRBG CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifndef NO_RSA
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_RSA_SIGN_PKCS1v15) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_RSA_SIGN_PKCS1v15));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_RSA_SIGN_PKCS1v15)
+                              != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_RSA_SIGN_PKCS1v15) != 0) {
+            FIPS_MSG("RSA sign CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#if defined(HAVE_ECC_CDH) && defined(HAVE_ECC_CDH_CAST)
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_ECC_CDH) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_ECC_CDH));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_ECC_CDH) != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_ECC_CDH) != 0) {
+            FIPS_MSG("RSA sign CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifdef HAVE_ECC_DHE
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_ECC_PRIMITIVE_Z) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_ECC_PRIMITIVE_Z));
+#endif
+    /* ECC_PRIMITIVE_Z depends on AES so don't re-run if AES failed */
+    if (wc_GetCastStatus_fips(FIPS_CAST_ECC_PRIMITIVE_Z)
+                              != FIPS_CAST_STATE_FAILURE)
+{
+        if (wc_RunCast_fips(FIPS_CAST_ECC_PRIMITIVE_Z) != 0) {
+            FIPS_MSG("ECC Primitive Z CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifdef HAVE_ECC
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_ECDSA) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_ECDSA));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_ECDSA) != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_ECDSA) != 0) {
+            FIPS_MSG("ECDSA CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifndef NO_DH
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_DH_PRIMITIVE_Z) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_DH_PRIMITIVE_Z));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_DH_PRIMITIVE_Z)
+                              != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_DH_PRIMITIVE_Z) != 0) {
+            FIPS_MSG("DH Primitive Z CAST failed");
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifdef WOLFSSL_HAVE_PRF
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_KDF_TLS12) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_KDF_TLS12));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_KDF_TLS12) != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_KDF_TLS12) != 0) {
+            FIPS_MSG("KDF TLSv1.2 CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#if defined(WOLFSSL_HAVE_PRF) && defined(WOLFSSL_TLS13)
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_KDF_TLS13) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_KDF_TLS13));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_KDF_TLS13) != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_KDF_TLS13) != 0) {
+            FIPS_MSG("KDF TLSv1.3 CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+#ifdef WOLFSSL_WOLFSSH
+#if defined(DEBUG_FIPS_VERBOSE)
+    printf("wc_GetCastStatus_fips(FIPS_CAST_KDF_SSH) = %d\n", wc_GetCastStatus_fips(FIPS_CAST_KDF_SSH));
+#endif
+    if (wc_GetCastStatus_fips(FIPS_CAST_KDF_SSH) != FIPS_CAST_STATE_FAILURE) {
+        if (wc_RunCast_fips(FIPS_CAST_KDF_SSH) != 0) {
+            FIPS_MSG("KDF SSHv2.0 CAST failed");
+            failCount++;
+        }
+    } else {
+        failCount++;
+    }
+#endif
+
+    if (failCount > 0 && fipsMode != FIPS_MODE_DEGRADED) {
+        fipsMode = FIPS_MODE_DEGRADED;
+        FIPS_MSG("Module status set to: FIPS_MODE_DEGRADED");
+    } else if (fipsMode == FIPS_MODE_DEGRADED) {
+        FIPS_MSG("Module status - FIPS_MODE_DEGRADED");
+    } else {
+        FIPS_MSG("Module status - FIPS_MODE_NORMAL");
+    }
+
+    RunAllCastCount++;
+    wc_UnLockMutex(&fips_allCast_mutex);
+    
+    WOLFSSL_LEAVE("wc_RunAllCast_fips_mutex", failCount);
+
+    return failCount;
+}
+
+
 #endif
 
 /* prevent multiple mutex initializations */
